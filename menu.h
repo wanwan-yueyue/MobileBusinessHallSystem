@@ -25,7 +25,18 @@ void showTitle();
 void showMainMenu();
 void clearScreen();
 void handleMenuChoice(int choice);
-void printCenter(const char* text);
-void printCenterColor(const char* text, const char* color);
 
-#endif
+// ========== 统一样式函数声明 ==========
+void printLeft(const char* text);
+void printLeftColor(const char* text, const char* color);
+void printSeparator();
+void printSectionTitle(const char* title);
+void printOperationTitle(const char* title);
+void printMenuItem(int index, const char* text, int isSelected);
+void printSuccess(const char* message);
+void printError(const char* message);
+void printWarning(const char* message);
+void printInfo(const char* label, const char* value);
+void printInfoInt(const char* label, int value);
+
+#endif // MENU_H

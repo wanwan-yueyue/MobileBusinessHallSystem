@@ -442,7 +442,7 @@ void clearInputBuffer()
 
 // int main(void){
 //     // 测试身份证验证函数
-//     const char *testID = "511721200603248599";       // 这里实际最后一位为6？
+//     const char *testID = "310104199211056720";      
 //     if (isValidIdCard(testID))
 //     {
 //         printf("身份证号码 %s 有效。\n", testID);

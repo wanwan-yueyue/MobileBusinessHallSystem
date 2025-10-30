@@ -1,3 +1,13 @@
+/*
+ * 文件名称：main.c
+ * 文件路径：.\MobileBusinessHallSystem\main.c
+ * 功能描述：程序主入口 - 重构以统一系统样式
+ * 作    者：
+ * 创建日期：2025-10-29
+ * 版本信息：v2.1（重构主程序，统一样式输出）
+ * 版权声明：© 2025 | 保留所有权利
+ */
+
 #include "menu.h"
 #include "data.h"
 #include "utils.h"
@@ -5,40 +15,41 @@
 #include <time.h>
 #include <stdlib.h>
 #include <windows.h>
+#include <conio.h>
 
+/**
+ * @brief 设置控制台编码为UTF-8
+ */
 void setConsoleEncoding() {
     // 设置控制台输出编码为UTF-8
     SetConsoleOutputCP(CP_UTF8);
     SetConsoleCP(CP_UTF8);
 }
 
+/**
+ * @brief 程序主入口
+ */
 int main() {
+    // 设置控制台编码
+    setConsoleEncoding();
 
-    setConsoleEncoding();  // 设置控制台编码为UTF-8
-
-    int choice;
+    // 显示系统启动画面
+    showTitle();
 
     // 系统初始化
-    printf("系统初始化中...\n");
+    printSectionTitle("系统初始化");
+    printLeft("正在初始化系统组件...");
     initSystem();                                           // 初始化系统数据结构
     loadData();                                             // 加载用户数据和手机号资源
-    printf("系统初始化完成，欢迎使用移动营业厅管理系统！\n");
-    system("pause");                                        // 暂停以便用户查看信息
+    
+    printSuccess("系统初始化完成！");
+    printLeft("欢迎使用移动营业厅管理系统！");
+    
+    printf(YELLOW "\n    按任意键继续..." RESET);
+    _getch();
 
-    while (1) {
-        showTitle();         // 显示启动画面
-        showMainMenu();    // 显示主菜单
+    // 进入主菜单循环
+    showMainMenu();
 
-        // 读取用户选择
-        scanf_s("%d", &choice);
-        if (choice == 0) {
-            printf("输入错误，请输入数字！\n");
-            clearInputBuffer();
-            system("pause");
-            continue;
-        }
-  
-
-        handleMenuChoice(choice);  // 处理选择
-    }
+    return 0;
 }

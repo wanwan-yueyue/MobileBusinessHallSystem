@@ -3,13 +3,20 @@
 
 #include <stdio.h>
 #include "phone.h"
+#include "menu.h"  // 包含样式函数
 
-#define MAX_USERS 20                // 最大用户数量
+#define MAX_USERS 200                // 最大用户数量
 #define NAME_LEN 20                 // 姓名最大长度
 #define GENDER_LEN 4                // 性别最大长度
 #define ID_LEN 19                   // 身份证号最大长度
 #define JOB_LEN 30                  // 职业最大长度
 #define ADDR_LEN 50                 // 地址最大长度
+
+// 用户状态枚举
+typedef enum {
+    USER_ACTIVE = 1,               // 活跃用户
+    USER_INACTIVE = 0              // 已注销用户
+} UserStatus;
 
 // 用户结构体
 typedef struct {
@@ -19,7 +26,7 @@ typedef struct {
     char idCard[ID_LEN];
     char job[JOB_LEN];
     char address[ADDR_LEN];
-    int isActive;  // 标记用户是否有效（1-有效，0-已删除）
+    UserStatus status;             // 用户状态（ACTIVE/INACTIVE）
 } User;
 
 // 全局用户数组（在user.c中定义）
@@ -43,6 +50,6 @@ void unregisterPhone();
 // 查询函数
 int findUserIndexById(const char* idCard);
 int findUserIndexByPhone(const char* phoneNum);
-int isIdCardUnique(const char* idCard);
+bool isIdCardUnique(const char* idCard);
 
 #endif // _USER
