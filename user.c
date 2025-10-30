@@ -4,7 +4,7 @@
  * 功能描述：用户管理模块实现文件 - 重构以适配新的手机号管理模块
  * 作    者：
  * 创建日期：2025-10-29
- * 版本信息：v2.2 （统一输出样式，优化用户交互体验）
+ * 版本信息：v2.3 (修改用户唯一性检测逻辑错误，同时增添从身份证中自动识别性别和年龄的功能)
  * 版权声明：? 2025 | 保留所有权利
  * 
  * 实现说明：
@@ -20,6 +20,7 @@
  * 2025-10-29  新增用户状态管理，身份证号唯一性检查，注销前必须解绑手机号
  * 2025-10-30  优化输入处理，重构以适配新的手机号管理模块，增强用户交互体验（v2.1）
  * 2025-10-30  统一输出样式，使用menu模块的样式函数提升界面一致性（v2.2）
+ * 2025-10-30  修改用户唯一性检测逻辑错误，同时增添从身份证中自动识别性别和年龄的功能
  */
 
 #include "user.h"
@@ -153,33 +154,33 @@ void addUser() {
     }
 
     User* newUser = &users[index];
-    newUser->status = USER_ACTIVE;
+    // newUser->status = USER_ACTIVE;
 
     // 输入基本信息
     // safeClearInputBuffer();
     safeStringInput(newUser->name, sizeof(newUser->name), "请输入姓名(不超过19字): ");
     
-    // 输入性别
-    while (1) {
-        safeStringInput(newUser->gender, sizeof(newUser->gender), "请输入性别（男/女/其他）：");
-        if (strcmp(newUser->gender, "男") == 0 || 
-            strcmp(newUser->gender, "女") == 0 || 
-            strcmp(newUser->gender, "其他") == 0) {
-            break;
-        }
-        printError("性别输入错误，请重新输入！");
-    }
+    // // 输入性别
+    // while (1) {
+    //     safeStringInput(newUser->gender, sizeof(newUser->gender), "请输入性别（男/女/其他）：");
+    //     if (strcmp(newUser->gender, "男") == 0 || 
+    //         strcmp(newUser->gender, "女") == 0 || 
+    //         strcmp(newUser->gender, "其他") == 0) {
+    //         break;
+    //     }
+    //     printError("性别输入错误，请重新输入！");
+    // }
 
-    // 输入年龄
-    safeClearInputBuffer();
-    newUser->age = safeIntInput("请输入年龄(1-120): ", 1, 120);
+    // // 输入年龄
+    // safeClearInputBuffer();
+    // newUser->age = safeIntInput("请输入年龄(1-120): ", 1, 120);
 
     // 输入身份证号
     while (1) {
         safeStringInput(newUser->idCard, sizeof(newUser->idCard), "请输入18位身份证号: ");
         
         if (isValidIdCard(newUser->idCard)) {
-            if (!isIdCardUnique(newUser->idCard)) {         // 先取消检查唯一性，以供调试
+            if (isIdCardUnique(newUser->idCard)) {
                 break;
             } else {
                 printError("该身份证号已被其他用户使用，请重新输入！");
@@ -189,11 +190,44 @@ void addUser() {
         }
     }
 
+    // 自动从身份证号码中获取性别和年龄
+    const char* gender = getGenderFromIDCard(newUser->idCard);
+    if(strcmp(gender,"未知") == 0){
+        printError("无法从身份证号码中识别性别，请手动输入！");
+        // 手动输入性别
+        while (1)
+        {
+            safeStringInput(newUser->gender, sizeof(newUser->gender), "请输入性别（男/女）：");
+            if(strcmp(newUser->gender, "男") == 0 || strcmp(newUser->gender, "女") == 0){
+                break;
+            }
+            printError("性别输入错误，请重新输入（男/女）！");
+        }
+        
+    }
+    else
+    {
+        strcpy_s(newUser->gender, sizeof(newUser->gender),gender);
+        printf(GREEN "    ✓ 自动识别性别: %s\n" RESET, gender);
+    }
+
+    // 获取年龄
+    int age = calculateAgeFromIDCard(newUser->idCard);
+    if (age == -1) {
+        printError("无法从身份证号计算年龄，请手动输入！");
+        safeClearInputBuffer();
+        newUser->age = safeIntInput("请输入年龄(1-120): ", 1, 120);
+    } else {
+        newUser->age = age;
+        printf(GREEN "    ✓ 自动计算年龄: %d\n" RESET, age);
+    }
+
     // 输入职业和地址
     safeClearInputBuffer();
     safeStringInput(newUser->job, sizeof(newUser->job), "请输入职业(不超过29字): ");
     safeStringInput(newUser->address, sizeof(newUser->address), "请输入地址(不超过49字): ");
 
+    newUser->status = USER_ACTIVE;          // 设置用户为活跃状态
     userCount++;
 
     // 询问是否立即注册手机号
