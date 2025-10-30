@@ -9,90 +9,76 @@
 #include <windows.h>
 #include <string.h>
 
-// ========== 工具函数 ==========
+// ========== 统一样式函数实现 ==========
 void clearScreen() {
     system("cls");
 }
 
-// 控制台居中打印
-void printCenter(const char* text) {
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-    int columns = 80;
-    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
-        columns = csbi.dwSize.X;
-    }
-    int padding = (columns - (int)strlen(text)) / 2;
-    if (padding < 0) padding = 0;
-    printf("%*s%s\n", padding, "", text);
+void printLeft(const char* text) {
+    printf("    %s\n", text);
 }
 
-// 打印居中的彩色文本
-void printCenterColor(const char* text, const char* color) {
-    printf("%s", color);
-    printCenter(text);
-    printf(RESET);
+void printLeftColor(const char* text, const char* color) {
+    printf("%s    %s\n" RESET, color, text);
 }
 
-// 打印居中的菜单项（左对齐内容）
-void printMenuItem(int index, const char* text, int isSelected, int menuWidth) {
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-    int columns = 80;
-    if (GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi)) {
-        columns = csbi.dwSize.X;
-    }
-    
-    int padding = (columns - menuWidth) / 2;
-    if (padding < 0) padding = 0;
-    
-    char buffer[256];
-    if (isSelected) {
-        // 选中项：带背景色和箭头
-        snprintf(buffer, sizeof(buffer), HIGHLIGHT " ➤ %d. %s" RESET, index + 1, text);
-    } else {
-        // 普通项
-        snprintf(buffer, sizeof(buffer), WHITE "   %d. %s" RESET, index + 1, text);
-    }
-    
-    // 左对齐填充
-    printf("%*s%s", padding, "", buffer);
-    
-    // 填充剩余空间使所有行等宽
-    int textLength = strlen(text) + 5; // 5 = " x. " 的宽度
-    int spaces = menuWidth - textLength;
-    for (int i = 0; i < spaces; i++) {
-        printf(" ");
-    }
-    printf("\n");
-}
-
-// 打印分隔线
 void printSeparator() {
-    printCenterColor("───────────────────────────────────────────────────", CYAN);
+    printf(CYAN "    ───────────────────────────────────────────────────" RESET "\n");
 }
 
-// 打印操作标题
+void printSectionTitle(const char* title) {
+    printf("\n");
+    printSeparator();
+    printLeftColor(title, CYAN);
+    printSeparator();
+    printf("\n");
+}
+
 void printOperationTitle(const char* title) {
-    printf("\n");
-    printSeparator();
-    printCenterColor(title, CYAN);
-    printSeparator();
-    printf("\n");
+    printSectionTitle(title);
 }
 
-// 动画标题
+void printMenuItem(int index, const char* text, int isSelected) {
+    if (isSelected) {
+        printf(HIGHLIGHT "    ➤ %d. %s" RESET "\n", index + 1, text);
+    } else {
+        printf(WHITE "      %d. %s" RESET "\n", index + 1, text);
+    }
+}
+
+void printSuccess(const char* message) {
+    printf(GREEN "    ✓ %s\n" RESET, message);
+}
+
+void printError(const char* message) {
+    printf(RED "    ✗ %s\n" RESET, message);
+}
+
+void printWarning(const char* message) {
+    printf(YELLOW "    %s \n" RESET, message);
+}
+
+void printInfo(const char* label, const char* value) {
+    printf(MAGENTA "    %s：" RESET "%s\n", label, value);
+}
+
+void printInfoInt(const char* label, int value) {
+    printf(WHITE "    %s：" RESET "%d\n", label, value);
+}
+
+// ========== 菜单功能实现 ==========
 void showTitle() {
     clearScreen();
     
     // 顶部装饰
     printf("\n\n");
-    printCenterColor("═══════════════════════════════════════════════════", CYAN);
-    printCenterColor("             移动营业厅管理系统", GREEN);
-    printCenterColor("═══════════════════════════════════════════════════", CYAN);
+    printSeparator();
+    printLeftColor("移动营业厅管理系统", GREEN);
+    printSeparator();
     printf("\n");
     
     // 加载动画
-    printCenterColor("正在加载系统，请稍候...", YELLOW);
-    printf("\n");
+    printLeftColor("正在加载系统，请稍候...", YELLOW);
     printf("    ");
     for (int i = 0; i < 20; i++) {
         printf(MAGENTA "■" RESET);
@@ -104,7 +90,6 @@ void showTitle() {
     Sleep(500);
 }
 
-// ========== 菜单功能处理 ==========
 void handleMenuChoice(int choice) {
     clearScreen();
     
@@ -146,23 +131,22 @@ void handleMenuChoice(int choice) {
         break;
     case 7:
         saveData();
-        printf(GREEN "\n\n    ✓ 数据已保存成功！\n" RESET);
+        printSuccess("数据已保存成功！");
         break;
     case 8:
         saveData();
-        printf(RED "\n\n    ❤ 感谢您的使用，再见！\n" RESET);
+        printf(RED "\n    ❤ 感谢您的使用，再见！\n" RESET);
         Sleep(1500);
         exit(0);
     default:
-        printf(RED "\n    ✗ 无效的操作编号，请重新输入！\n" RESET);
+        printError("无效的操作编号，请重新输入！");
         break;
     }
     
-    printf(YELLOW "\n    按任意键返回主菜单..." RESET);
+    printWarning("按任意键返回主菜单...");
     _getch();
 }
 
-// ========== 增强的主菜单显示 ==========
 void showMainMenu() {
     const char* menuItems[] = {
         "新增用户",
@@ -178,25 +162,26 @@ void showMainMenu() {
     
     const int menuCount = sizeof(menuItems) / sizeof(menuItems[0]);
     int choice = 0;
-    const int menuWidth = 35; // 菜单项固定宽度，确保对齐
 
     while (1) {
         clearScreen();
         
         // 显示系统标题
         printf("\n\n");
-        printCenterColor("★ ★ ★ 移动营业厅管理系统 ★ ★ ★", BLUE);
+        printSeparator();
+        printLeftColor("★ ★ ★ 移动营业厅管理系统 ★ ★ ★", BLUE);
+        printSeparator();
         printf("\n\n");
         
         // 显示菜单项
         for (int i = 0; i < menuCount; i++) {
-            printMenuItem(i, menuItems[i], i == choice, menuWidth);
+            printMenuItem(i, menuItems[i], i == choice);
         }
         
         // 底部提示信息
         printf("\n");
-        printCenterColor("使用 ↑↓ 键选择，Enter 键确认", GRAY);
-        printCenterColor("ESC 键可直接退出系统", GRAY);
+        printLeftColor("使用 ↑↓ 键选择，Enter 键确认", GRAY);
+        printLeftColor("ESC 键可直接退出系统", GRAY);
         
         // 键盘输入处理
         int key = _getch();
