@@ -3,7 +3,7 @@
  * 文件路径：.\MobileBusinessHallSystem\phone.c
  * 功能描述：手机号管理模块实现文件 - 实现手机号资源的初始化、绑定、解绑、查询等核心功能
  * 创建日期：2025-10-28
- * 版本信息：v2.0 实现完整的文件操作接口
+ * 版本信息：v2.1（适配全局变量管理）
  * 版权声明：© 2025 ，保留所有权利
  * 
  * 实现说明：
@@ -11,6 +11,7 @@
  * 2. 实现一人多号功能，通过严格的状态检查和数量限制确保数据一致性；
  * 3. 集成utils模块的手机号格式验证，确保输入数据的合法性；
  * 4. 提供完整的错误处理机制，包括参数校验、内存分配失败处理等。
+ * 5. 移除对全局变量的直接依赖，所有函数通过参数接收管理器指针
  * 依赖说明：
  * - 标准库：stdio.h、stdlib.h、string.h、stdbool.h、ctype.h、assert.h、time.h
  * - 自定义模块：utils.h（数据验证）、phone.h（数据结构定义）
@@ -21,6 +22,7 @@
  * 2025-10-29  优化内存管理，修复资源泄露问题（v1.2）
  * 2025-10-29  增强错误处理，完善参数校验逻辑（v1.3）
  * 2025-10-29  实现完整的文件操作接口，支持数据持久化（v2.0）
+ * 2025-11-1   适配全局变量管理(v2.1)
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +30,7 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <assert.h>
+#include <time.h>
 #include "utils.h"
 #include "phone.h"
 
@@ -46,6 +49,7 @@ static void initPhoneResource(PhoneResource *resource) {
     resource->userId = -1;                                      // 设置用户ID为-1（未绑定）
     resource->assignTime[0] = '\0';                             // 清空分配时间字符串（设置为空串）
 }
+
 /**
  * @brief 初始化单个手机号资源的状态，用户ID，分配时间字段，保留手机号字符串不变
  * @param resource: 指向需要初始化的PhoneResource结构体的指针
@@ -214,7 +218,6 @@ static void addPhoneToResource(PhoneManager *manager, const char *fullPhone) {
  * @param startSegment: 起始号段字符串
  * @param num: 手机号数量
  * @retval 1-成功, 0-失败
- * @author 
  * @date   2025-10-28
  */
 int initPhoneResources(PhoneManager *manager, const char *startSegment, int num) {
@@ -375,7 +378,6 @@ int registerPhone(PhoneManager *manager, int userID, const char *phoneNumber){
     }
 
     // 使用utils.c中的手机号格式验证函数
-    // extern bool isValidPhoneNumber(const char *phoneNumber);
     if(!isValidPhoneNumber(phoneNumber)){
         return 0;                                               // 手机号格式无效
     }
@@ -558,7 +560,7 @@ const PhoneResource* getPhoneResourceByIndex(const PhoneManager *manager, int in
 }
 
 /**
-  * @brief  保存手机号资源到文件(预留接口)
+  * @brief  保存手机号资源到文件
   * @param  manager: 手机号管理器指针
   * @param  fileName: 文件名
   * @retval 1-成功, 0-失败

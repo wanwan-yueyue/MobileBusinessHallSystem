@@ -1,16 +1,17 @@
 /*
  * 文件名称：main.c
  * 文件路径：.\MobileBusinessHallSystem\main.c
- * 功能描述：程序主入口 - 重构以统一系统样式
+ * 功能描述：程序主入口 - 适配新的全局变量管理
  * 作    者：
  * 创建日期：2025-10-29
- * 版本信息：v2.1（重构主程序，统一样式输出）
+ * 版本信息：v2.1（适配全局变量管理）
  * 版权声明：© 2025 | 保留所有权利
  */
 
 #include "menu.h"
 #include "data.h"
 #include "utils.h"
+#include "global.h"
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
@@ -50,6 +51,9 @@ int main() {
 
     // 进入主菜单循环
     showMainMenu();
+
+    // 程序退出前的清理
+    cleanupGlobalResources();
 
     return 0;
 }
