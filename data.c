@@ -4,14 +4,13 @@
  * 功能描述：数据持久化模块 - 重构以支持新的手机号管理器和用户数据结构
  * 作    者：
  * 创建日期：2025-10-29
- * 版本信息：v2.1 （修改输出样式以适配统一界面）
+ * 版本信息：v2.2 （适配全局变量管理）
  * 版权声明：© 2025  | 保留所有权利
  * 
  * 实现说明：
- * 1. 用户数据和手机号资源分开存储，分别保存到不同的文件；
- * 2. 使用新的PhoneManager结构进行手机号资源的序列化和反序列化；
- * 3. 支持系统初始化和数据恢复的完整流程；
- * 4. 提供数据文件创建和读取的兼容性处理。
+ * 1. 使用新的全局变量管理接口
+ * 2. 用户数据和手机号资源分开存储
+ * 3. 支持系统初始化和数据恢复的完整流程
  * 依赖说明：
  * - 标准库：stdio.h、stdlib.h、string.h
  * - 自定义模块：user.h、phone.h、data.h
@@ -21,12 +20,12 @@
  * 2025-10-29  适配新的用户状态枚举，修复编译错误
  * 2025-10-29  彻底清空用户数据，修复身份证号重复检查问题
  * 2025-10-30  修改输出样式以适配统一界面（v2.1）
+ * 2025-11-1   适配全局变量管理（v2.2）
  */
 
 #include "data.h"
-#include "user.h"
-#include "phone.h"
 #include "menu.h" 
+#include "global.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -35,45 +34,33 @@
 void initSystem() {
     printLeft("系统初始化中...");
     
-    // 初始化用户数组
-    for (int i = 0; i < MAX_USERS; i++) {
-        users[i].status = USER_INACTIVE;          // 标记用户为"未激活"（无效）
-        memset(users[i].name, 0, NAME_LEN);       // 清空姓名
-        memset(users[i].gender, 0, GENDER_LEN);   // 清空性别
-        users[i].age = 0;                         // 清空年龄
-        memset(users[i].idCard, 0, ID_LEN);       // 清空身份证号
-        memset(users[i].job, 0, JOB_LEN);         // 清空职业
-        memset(users[i].address, 0, ADDR_LEN);    // 清空地址
-    }
+    // 初始化用户数组(使用全局初始化函数)
+    initGlobalVariables();
 
-    userCount = 0; // 重置用户数量
-    
     // 调试信息
     printSuccess("用户数组初始化完成，所有用户状态设置为USER_INACTIVE");
     
     // 初始化手机号管理器
-    if(phoneManager == NULL){
-        phoneManager = initPhoneManager();
-        if(phoneManager == NULL){
-            printError("手机号管理器初始化失败！");
-            exit(1);
-        }
-
-        // 初始化一些默认号段
-        if(!initPhoneResources(phoneManager,"138", 50)){
-            printError("默认号段138初始化失败！");
-        }
-        if(!initPhoneResources(phoneManager,"139", 50)){
-            printError("默认号段139初始化失败！");
-        }
-        if(!initPhoneResources(phoneManager,"150", 50)){
-            printError("默认号段150初始化失败！");
-        }
-
-        // 调试信息
-        printSuccess("手机号管理器初始化成功，已加载默认号段！");
+    if(getPhoneManager() == NULL){
+        printError("手机号管理器初始化失败！");
+        exit(1);
     }
+
+    // 初始化一些默认号段
+    if(!initPhoneResources(phoneManager,"138", 50)){
+        printError("默认号段138初始化失败！");
+    }
+    if(!initPhoneResources(phoneManager,"139", 50)){
+        printError("默认号段139初始化失败！");
+    }
+    if(!initPhoneResources(phoneManager,"150", 50)){
+        printError("默认号段150初始化失败！");
+    }
+
+    // 调试信息
+    printSuccess("手机号管理器初始化成功，已加载默认号段！");
 }
+
 
 //读取文件内容
 int readData() {
@@ -83,14 +70,19 @@ int readData() {
         printError("无法打开用户数据文件！");
         return 0;
     }
+
+    // 初始化全局变量
+    initGlobalVariables();
     
     int i = 0;
+    User tempUser;
     // 读取用户数据直到文件末尾
-    while (i < MAX_USERS && fread(&users[i], sizeof(User), 1, fp) == 1) {
-        if(users[i].status == USER_ACTIVE) {
+    while (i < MAX_USERS && fread(&tempUser, sizeof(User), 1, fp) == 1) {
+        if(tempUser.status == USER_ACTIVE) {
+            users[i] = tempUser;
             userCount++;
+            i++;
         }
-        i++;
     }   
 
     fclose(fp);

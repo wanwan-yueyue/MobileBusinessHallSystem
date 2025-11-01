@@ -1,7 +1,8 @@
 #include "menu.h"
-#include "user.h"
+#include "user_interface.h"
 #include "phone.h"
 #include "data.h"
+#include "global.h"
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -113,25 +114,25 @@ void handleMenuChoice(int choice) {
     
     switch (choice) {
     case 0:  
-        addUser(); 
+        addUserInterface(); 
         break;
     case 1:  
-        searchUser(); 
+        searchUserInterface(); 
         break;
     case 2:  
-        registerPhoneForUser(-1); 
+        registerPhoneForUserInterface(-1); 
         break;
     case 3:  
-        unregisterPhone(); 
+        unregisterPhoneInterface(); 
         break;
     case 4:  
-        modifyUser(); 
+        modifyUserInterface(); 
         break;
     case 5:  
-        deleteUser(); 
+        deleteUserInterface(); 
         break;
     case 6:  
-        showAllUsers(); 
+        showAllUsersInterface(); 
         break;
     case 7:
         saveData();
@@ -139,6 +140,7 @@ void handleMenuChoice(int choice) {
         break;
     case 8:
         saveData();
+        cleanupGlobalResources();  // 退出前清理资源
         printf(RED "\n    ❤ 感谢您的使用，再见！\n" RESET);
         Sleep(1500);
         exit(0);
@@ -147,8 +149,10 @@ void handleMenuChoice(int choice) {
         break;
     }
     
-    printWarning("按任意键返回主菜单...");
-    _getch();
+    if (choice != 8) {
+        printWarning("按任意键返回主菜单...");
+        _getch();
+    }
 }
 
 void showMainMenu() {
