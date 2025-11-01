@@ -2,7 +2,6 @@
  * 文件名称：phone.c
  * 文件路径：.\MobileBusinessHallSystem\phone.c
  * 功能描述：手机号管理模块实现文件 - 实现手机号资源的初始化、绑定、解绑、查询等核心功能
- * 作    者：
  * 创建日期：2025-10-28
  * 版本信息：v2.0 实现完整的文件操作接口
  * 版权声明：© 2025 ，保留所有权利
@@ -36,7 +35,6 @@
  * @brief 初始化单个手机号资源的所有字段（重置为初始状态）
  * @param resource: 指向需要初始化的PhoneResource结构体的指针
  * @retval 无
- * @author 
  * @date   2025-10-28
  */
 static void initPhoneResource(PhoneResource *resource) {
@@ -52,7 +50,6 @@ static void initPhoneResource(PhoneResource *resource) {
  * @brief 初始化单个手机号资源的状态，用户ID，分配时间字段，保留手机号字符串不变
  * @param resource: 指向需要初始化的PhoneResource结构体的指针
  * @retval 无
- * @author 
  * @date   2025-10-29
  */
 void resetPhoneResource(PhoneResource *resource) {
@@ -68,7 +65,6 @@ void resetPhoneResource(PhoneResource *resource) {
   * @brief  初始化手机号管理器
   * @param  无
   * @retval PhoneManager* 手机号管理器指针，失败返回NULL
-  * @author 杜家宝
   * @date   2025-10-28
   */
 
@@ -103,7 +99,6 @@ PhoneManager* initPhoneManager(void){
   * @brief  清理手机号管理器
   * @param  manager: 手机号管理器指针
   * @retval 无
-  * @author 杜家宝
   * @date   2025-10-28
   */
 void cleanupPhoneManager(PhoneManager *manager){
@@ -115,88 +110,12 @@ void cleanupPhoneManager(PhoneManager *manager){
     }
 }
 
-// /**
-//   * @brief  初始化手机号资源
-//   * @param  manager: 手机号管理器指针
-//   * @param  startSegment: 起始号段字符串
-//   * @param  num: 手机号数量
-//   * @retval 1-成功, 0-失败
-//   * @author 
-//   * @date   2025-10-28
-//   */
-// int initPhoneResources(PhoneManager *manager, const char *startSegment, int num){
-//     if(manager == NULL || startSegment == NULL || num <= 0){
-//         return 0;                                               // 参数无效
-//     }
-
-//     if(!validatePhoneSegment(startSegment)){
-//         return 0;                                               // 号段格式无效
-//     }
-
-//     // 检查容量是否足够，不够则扩展容量
-//     PhoneResource *newPhones = NULL;
-//     if((manager->count + num) > manager->capacity){
-//         int newCapacity = manager->capacity * 2;
-//         while(newCapacity < (manager->count + num)){
-//             newCapacity *= 2;
-//         }
-
-//         newPhones = (PhoneResource *)realloc(manager->phones, 
-//             sizeof(PhoneResource) * newCapacity);
-
-//         if(newPhones == NULL){
-//             return 0;                                           // 内存分配失败
-//         }
-
-//         manager->phones = newPhones;                            // 更新手机号资源数组指针
-//         manager->capacity = newCapacity;                        // 更新容量
-
-//         // 初始化新增的手机号资源
-//         for(int i = manager->count; i < manager->capacity; i++){
-//             manager->phones[i].phoneNumber[0] = '\0';           // 清空号码字符串
-//             manager->phones[i].status = PHONE_STATUS_FREE;      // 设置状态为未分配
-//             manager->phones[i].userId = -1;                     // 未绑定
-//             manager->phones[i].assignTime[0] = '\0';            // 清空分配时间字符串
-//         }
-//     }
-
-//     // 生成手机号资源
-//     char baseNumber[MAX_PHONE_LENGTH];                          // 基础号码字符串
-//     strcpy(baseNumber, startSegment);                           // 复制起始号段
-//     int baseLength = strlen(baseNumber);                        // 基础号码长度
-//     int sequenceLength = 11 - baseLength;                       // 序列号长度，11为手机号总长
-
-//     for(int i = 0; i < num; i++){
-//         // 生成序列号部分字符串
-//         char sequenceStr[sequenceLength + 1];                   // 序列号字符串，预留结束符'\0'
-//         snprintf(sequenceStr, sizeof(sequenceStr), 
-//             "%0*d", sequenceLength, i);                         // 格式化为指定长度，前导补0
-
-//         // 组合完整手机号
-//         char fullPhoneNumber[MAX_PHONE_LENGTH];                 // 完整手机号字符串
-//         strcpy(fullPhoneNumber, baseNumber);                    // 复制基础号码 部分
-//         strcat(fullPhoneNumber, sequenceStr);                   // 拼接序列号部分
-
-//         // 添加到手机号资源池
-//         strcpy(manager->phones[manager->count].phoneNumber, 
-//             fullPhoneNumber);                                   // 复制完整手机号
-//         manager->phones[manager->count].status 
-//             = PHONE_STATUS_FREE;                                // 设置状态为未分配
-//         manager->phones[manager->count].userId = -1;            // 未绑定
-//         manager->phones[manager->count].assignTime[0] = '\0';   // 清空分配时间字符串
-//         manager->count++;                                       // 增加当前数量
-//     }
-
-//     return 1;                                                   // 成功
-// }
-
 /**
  * @brief 校验初始化手机号资源的输入参数
  * @param manager: 手机号管理器指针
  * @param startSegment: 起始号段字符串
  * @param num: 手机号数量
  * @retval 1-参数有效, 0-参数无效
- * @author 
  * @date   2025-10-28
  */
 static int checkInitParams(PhoneManager *manager, const char *startSegment, int num) {
@@ -209,7 +128,6 @@ static int checkInitParams(PhoneManager *manager, const char *startSegment, int 
  * @param manager: 手机号管理器指针
  * @param requiredTotal: 需要的总容量（当前已有数量+新增数量）
  * @retval 1-扩展成功（或无需扩展）, 0-扩展失败（内存不足）
- * @author 
  * @date   2025-10-28
  */
 static int expandPhoneCapacity(PhoneManager *manager, int requiredTotal) {
@@ -253,7 +171,6 @@ static int expandPhoneCapacity(PhoneManager *manager, int requiredTotal) {
  * @param fullPhone: 输出参数，存储生成的完整手机号
  * @param fullPhoneSize: fullPhone的最大长度（防止溢出）
  * @retval 1-生成成功, 0-生成失败（长度不合法）
- * @author 
  * @date   2025-10-28
  */
 static int generateFullPhoneNumber(const char *baseNumber, int sequenceLength, 
@@ -280,16 +197,12 @@ static int generateFullPhoneNumber(const char *baseNumber, int sequenceLength,
  * @param manager: 手机号管理器指针
  * @param fullPhone: 完整的11位手机号
  * @retval 无
- * @author
  * @date   2025-10-28
  */
 static void addPhoneToResource(PhoneManager *manager, const char *fullPhone) {
     // 存入手机号
     strcpy(manager->phones[manager->count].phoneNumber, fullPhone);
     // 初始化状态（未分配、未绑定、无分配时间）
-    // manager->phones[manager->count].status = PHONE_STATUS_FREE;
-    // manager->phones[manager->count].userId = -1;
-    // manager->phones[manager->count].assignTime[0] = '\0';
     resetPhoneResource(&manager->phones[manager->count]);
     // 资源数量+1
     manager->count++;
@@ -351,7 +264,6 @@ int initPhoneResources(PhoneManager *manager, const char *startSegment, int num)
   * @param  startSegment: 起始号段字符串
   * @param  num: 手机号数量
   * @retval 1-成功, 0-失败
-  * @author 
   * @date   2025-10-28
   */
 int releasePhoneSegment(PhoneManager *manager, const char *startSegment, int num){
@@ -364,7 +276,6 @@ int releasePhoneSegment(PhoneManager *manager, const char *startSegment, int num
   * @param  manager: 手机号管理器指针
   * @param  selectedPhone: 输出参数，存储选中的手机号
   * @retval 1-成功, 0-失败
-  * @author 
   * @date   2025-10-28
   */
 int selectRandomPhone(PhoneManager *manager, char *selectedPhone){
@@ -409,8 +320,7 @@ int selectRandomPhone(PhoneManager *manager, char *selectedPhone){
   * @brief  获取用户的手机号数量
   * @param  manager: 手机号管理器指针
   * @param  userID: 用户ID
-  * @retval 手机号数量
-  * @author 
+  * @retval 手机号数量 
   * @date   2025-10-29
   */
 int getUserPhoneCount(const PhoneManager *manager, int userID){
@@ -435,7 +345,6 @@ int getUserPhoneCount(const PhoneManager *manager, int userID){
  * @param manager: 手机号管理器指针
  * @param phoneNumber: 待查找的手机号字符串
  * @retval 索引位置，未找到返回-1
- * @author 
  * @date   2025-10-29
  */
 int findPhoneIndex(PhoneManager *manager, const char *phoneNumber){
@@ -458,7 +367,6 @@ int findPhoneIndex(PhoneManager *manager, const char *phoneNumber){
   * @param  userId: 绑定的用户ID
   * @param  phoneNumber: 要绑定的手机号字符串
   * @retval 1-成功, 0-失败（号码已占用或超限）
-  * @author 
   * @date   2025-10-29
   */
 int registerPhone(PhoneManager *manager, int userID, const char *phoneNumber){
@@ -495,7 +403,6 @@ int registerPhone(PhoneManager *manager, int userID, const char *phoneNumber){
     // 获取当前时间作为分配时间
     time_t now = time(NULL);
     struct tm *timeInfo;
-    // time(&now);
     timeInfo = localtime(&now);
     strftime(manager->phones[phoneIndex].assignTime, 
         sizeof(manager->phones[phoneIndex].assignTime), 
@@ -510,7 +417,6 @@ int registerPhone(PhoneManager *manager, int userID, const char *phoneNumber){
   * @param  userID: 用户ID
   * @param  phoneNumber: 手机号字符串
   * @retval 1-成功, 0-失败(号码未绑定或不属于该用户)
-  * @author 
   * @date   2025-10-29
   */
 int cancelPhone(PhoneManager *manager, int userID, const char *phoneNumber){
@@ -530,9 +436,6 @@ int cancelPhone(PhoneManager *manager, int userID, const char *phoneNumber){
     }
 
     // 注销手机号，重置为初始状态
-    // manager->phones[phoneIndex].status = PHONE_STATUS_FREE;   // 设置状态为未分配
-    // manager->phones[phoneIndex].userId = -1;                  // 解绑用户
-    // manager->phones[phoneIndex].assignTime[0] = '\0';         // 清空分配时间字符串
     resetPhoneResource(&manager->phones[phoneIndex]);
 
     return 1;                                                   // 注销成功
@@ -543,7 +446,6 @@ int cancelPhone(PhoneManager *manager, int userID, const char *phoneNumber){
   * @param  manager: 手机号管理器指针
   * @param  userID: 用户ID
   * @retval 注销的手机号数量
-  * @author 
   * @date   2025-10-29
   */
 int cancelAllUserPhones(PhoneManager *manager, int userID){
@@ -570,7 +472,6 @@ int cancelAllUserPhones(PhoneManager *manager, int userID){
   * @param  manager: 手机号管理器指针
   * @param  phoneNumber: 手机号字符串
   * @retval true-唯一, false-已存在
-  * @author 
   * @date   2025-10-29
   */
 bool isPhoneUnique(PhoneManager *manager, const char *phoneNumber){
@@ -592,7 +493,6 @@ bool isPhoneUnique(PhoneManager *manager, const char *phoneNumber){
   * @brief  获取可用手机号资源总数量
   * @param  manager: 手机号管理器指针
   * @retval 手机号可用资源总数量
-  * @author 
   * @date   2025-10-29
   */
 int getAvailablePhoneCount(const PhoneManager *manager){
@@ -611,14 +511,13 @@ int getAvailablePhoneCount(const PhoneManager *manager){
     return count;                                               // 返回可用手机号数量
 }
 
-/*
+/**
   * @brief  获取用户的所有手机号
   * @param  manager: 手机号管理器指针
   * @param  userID: 用户ID
   * @param  phones: 返回手机号数组
   * @param  count: 返回手机号数量
   * @retval 无
-  * @author 
   * @date   2025-10-29
   */
 void getUserPhones(const PhoneManager *manager, int userID, 
@@ -648,7 +547,6 @@ void getUserPhones(const PhoneManager *manager, int userID,
   * @param  manager: 手机号管理器指针
   * @param  index: 资源索引
   * @retval PhoneResource* 指向手机号资源的指针，失败返回NULL
-  * @author 
   * @date   2025-10-29
   */
 const PhoneResource* getPhoneResourceByIndex(const PhoneManager *manager, int index){
@@ -664,17 +562,9 @@ const PhoneResource* getPhoneResourceByIndex(const PhoneManager *manager, int in
   * @param  manager: 手机号管理器指针
   * @param  fileName: 文件名
   * @retval 1-成功, 0-失败
-  * @author 
   * @date   2025-10-28
   */
-// int savePhoneResource(const PhoneManager *manager, const char *fileName)
-// {
-//     // 预留接口，由文件操作模块实现
-//     // 这里返回1表示成功，实际实现时由文件操作模块完成
-//     (void)manager;                                              // 避免未使用参数警告
-//     (void)fileName;                                             // 避免未使用参数警告
-//     return 1;
-// }
+
 int savePhoneResource(const PhoneManager *manager, const char *fileName)
 {
     if (manager == NULL || fileName == NULL) {
@@ -713,17 +603,9 @@ int savePhoneResource(const PhoneManager *manager, const char *fileName)
   * @param  manager: 手机号管理器指针
   * @param  fileName: 文件名
   * @retval 1-成功, 0-失败
-  * @author 
   * @date   2025-10-28
   */
-// int loadPhoneResource(PhoneManager *manager, const char *fileName)
-// {
-//     // 预留接口，由文件操作模块实现
-//     // 这里返回1表示成功，实际实现时由文件操作模块完成
-//     (void)manager;                                              // 避免未使用参数警告
-//     (void)fileName;                                             // 避免未使用参数警告
-//     return 1;
-// }
+
 int loadPhoneResource(PhoneManager *manager, const char *fileName)
 {
     if (manager == NULL || fileName == NULL) {

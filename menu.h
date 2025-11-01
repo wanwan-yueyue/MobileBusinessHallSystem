@@ -38,5 +38,6 @@ void printError(const char* message);
 void printWarning(const char* message);
 void printInfo(const char* label, const char* value);
 void printInfoInt(const char* label, int value);
+void printInfoIntMagenta(const char* label, int value);
 
 #endif // MENU_H

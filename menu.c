@@ -66,6 +66,10 @@ void printInfoInt(const char* label, int value) {
     printf(WHITE "    %s：" RESET "%d\n", label, value);
 }
 
+void printInfoIntMagenta(const char* label, int value){
+    printf(MAGENTA "    %s：" RESET "%d\n", label, value);
+}
+
 // ========== 菜单功能实现 ==========
 void showTitle() {
     clearScreen();

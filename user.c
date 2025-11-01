@@ -89,6 +89,50 @@ static int validateAndGetUserIndex() {
 }
 
 /**
+ * @brief 使用↑↓键进行菜单选择
+ * @param options: 选项数组
+ * @param count: 选项数量
+ * @param title: 选择标题
+ * @return 选择的索引(0到count-1)
+ */
+static int makeSelection(const char *options[], int count, const char *title) {
+    int choice = 0;
+    
+    while (1) {
+        clearScreen();
+        
+        // 显示标题
+        if (title) {
+            printSectionTitle(title);
+        }
+        
+        // 显示选项
+        for (int i = 0; i < count; i++) {
+            printMenuItem(i, options[i], i == choice);
+        }
+        
+        // 底部提示
+        printf("\n");
+        printLeftColor("使用 ↑↓ 键选择，Enter 键确认", GRAY);
+        
+        // 键盘输入处理
+        int key = _getch();
+        if (key == 224) { // 特殊键
+            key = _getch();
+            if (key == 72) { // ↑ 键
+                choice = (choice - 1 + count) % count;
+            } else if (key == 80) { // ↓ 键
+                choice = (choice + 1) % count;
+            }
+        } else if (key == 13) { // Enter 键
+            return choice;
+        } else if (key == 27) { // ESC 键返回
+            return -1;
+        }
+    }
+}
+
+/**
  * @brief 显示用户详细信息
  */
 static void displayUserDetails(int userIndex) {
@@ -134,7 +178,9 @@ void addUser() {
 
     if (userCount >= MAX_USERS) {
         printError("系统用户数量已达上限，无法新增！");
-        system("pause");
+        // system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
@@ -149,7 +195,9 @@ void addUser() {
     
     if (index == -1) {
         printError("系统错误，无法添加用户！");
-        system("pause");
+        // system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
@@ -254,27 +302,33 @@ void searchUser() {
     clearScreen();
     printSectionTitle("查找用户");
     
-    printf("    1. 按身份证号查找\n");
-    printf("    2. 按手机号查找\n");
-    printf("    3. 按姓名查找\n");
+    const char* searchOptions[] = {
+        "按身份证号查找",
+        "按手机号查找", 
+        "按姓名查找"
+    };
+
+    const int optionCount = sizeof(searchOptions) / sizeof(searchOptions[0]);
     
-    int choice = safeIntInput("请选择查找方式：", 1, 3);
+    int choice = makeSelection(searchOptions, optionCount, "选择查找方式");
+    if (choice == -1) return;
+    
     int userIndex = -1;
 
     switch (choice) {
-        case 1: {
+        case 0: { // 身份证号查找
             char idCard[ID_LEN];
             safeStringInput(idCard, sizeof(idCard), "请输入身份证号：");
             userIndex = findUserIndexById(idCard);
             break;
         }
-        case 2: {
+        case 1: { // 手机号查找
             char phoneNum[12];
             safeStringInput(phoneNum, sizeof(phoneNum), "请输入手机号：");
             userIndex = findUserIndexByPhone(phoneNum);
             break;
         }
-        case 3: {
+        case 2: { // 姓名查找
             char name[NAME_LEN];
             safeStringInput(name, sizeof(name), "请输入姓名：");
 
@@ -289,7 +343,8 @@ void searchUser() {
 
             if (count == 0) {
                 printError("未找到该用户！");
-                system("pause");
+                printf(YELLOW "\n    按任意键继续..." RESET);
+                _getch();
                 return;
             } else if (count > 1) {
                 char idCard[ID_LEN];
@@ -308,7 +363,8 @@ void searchUser() {
         printError("未找到该用户！");
     }
 
-    system("pause");
+    printf(YELLOW "\n    按任意键继续..." RESET);
+    _getch();
 }
 
 void modifyUser() {
@@ -317,7 +373,8 @@ void modifyUser() {
     
     int userIndex = validateAndGetUserIndex();
     if (userIndex == -1) {
-        system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
@@ -329,13 +386,23 @@ void modifyUser() {
     printf("    4. 职业：%s\n", user->job);
     printf("    5. 地址：%s\n", user->address);
     
-    int choice = safeIntInput("请选择要修改的项目(1-5): ", 1, 5);
+    const char* modifyOptions[] = {
+        "修改姓名",
+        "修改性别", 
+        "修改年龄",
+        "修改职业", 
+        "修改地址"
+    };
+    const int optionCount = sizeof(modifyOptions) / sizeof(modifyOptions[0]);
+    
+    int choice = makeSelection(modifyOptions, optionCount, "选择修改项目");
+    if (choice == -1) return;
 
     switch (choice) {
-        case 1:
+        case 0: // 修改姓名
             safeStringInput(user->name, sizeof(user->name), "请输入新姓名：");
             break;
-        case 2:
+        case 1: // 修改性别
             while (1) {
                 safeStringInput(user->gender, sizeof(user->gender), "请输入新性别（男/女/其他）：");
                 if (strcmp(user->gender, "男") == 0 || 
@@ -346,20 +413,21 @@ void modifyUser() {
                 printError("性别输入错误，请重新输入！");
             }
             break;
-        case 3:
+        case 2: // 修改年龄
             user->age = safeIntInput("请输入新年龄（1-120）：", 1, 120);
             break;
-        case 4:
+        case 3: // 修改职业
             safeStringInput(user->job, sizeof(user->job), "请输入新职业：");
             break;
-        case 5:
+        case 4: // 修改地址
             safeStringInput(user->address, sizeof(user->address), "请输入新地址：");
             break;
     }
 
     saveData();
     printSuccess("信息修改成功！");
-    system("pause");
+    printf(YELLOW "\n    按任意键继续..." RESET);
+    _getch();
 }
 
 void deleteUser() {
@@ -368,21 +436,27 @@ void deleteUser() {
     
     int userIndex = validateAndGetUserIndex();
     if (userIndex == -1) {
-        system("pause");
+        // system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
     // 检查用户状态
     if (users[userIndex].status == USER_INACTIVE) {
         printError("该用户已经是注销状态！");
-        system("pause");
+        // system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
     // 检查是否有未注销的手机号
     if (phoneManager != NULL && getUserPhoneCount(phoneManager, userIndex) > 0) {
         printError("该用户仍有关联手机号，请先注销所有手机号！");
-        system("pause");
+        // system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
@@ -391,7 +465,9 @@ void deleteUser() {
     userCount--;
     saveData();
     printSuccess("用户注销成功！");
-    system("pause");
+    // system("pause");
+    printf(YELLOW "\n    按任意键继续..." RESET);
+    _getch();
 }
 
 void showAllUsers() {
@@ -400,7 +476,9 @@ void showAllUsers() {
 
     if (userCount == 0) {
         printError("当前无用户信息！");
-        system("pause");
+        // system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
@@ -412,7 +490,7 @@ void showAllUsers() {
             printf(WHITE "    用户%d:\n" RESET, index++);
             printInfo("姓名", user->name);
             printInfo("性别", user->gender);
-            printInfoInt("年龄", user->age);
+            printInfoIntMagenta("年龄", user->age);
             printInfo("身份证号", user->idCard);
             printInfo("职业", user->job);
             printInfo("地址", user->address);
@@ -443,11 +521,24 @@ void showAllUsers() {
         sortUsers();
     }
     
-    system("pause");
+    // system("pause");
+    printf(YELLOW "\n    按任意键继续..." RESET);
+    _getch();
 }
 
 void sortUsers() {
     if (userCount <= 1) return;
+
+    const char* sortOptions[] = {
+        "按姓名排序",
+        "按年龄升序", 
+        "按年龄降序",
+        "按身份证号排序"
+    };
+    const int optionCount = sizeof(sortOptions) / sizeof(sortOptions[0]);
+    
+    int choice = makeSelection(sortOptions, optionCount, "选择排序方式");
+    if (choice == -1) return;
 
     // 复制有效用户索引到数组
     int userIndices[100];
@@ -458,13 +549,6 @@ void sortUsers() {
         }
     }
 
-    printf("\n    1. 按姓名排序\n");
-    printf("    2. 按年龄升序\n");
-    printf("    3. 按年龄降序\n");
-    printf("    4. 按身份证号排序\n");
-    
-    int choice = safeIntInput("请选择排序方式：", 1, 4);
-
     // 冒泡排序
     for (int i = 0; i < count - 1; i++) {
         for (int j = 0; j < count - i - 1; j++) {
@@ -473,16 +557,16 @@ void sortUsers() {
             int swap = 0;
 
             switch (choice) {
-                case 1:
+                case 0: // 按姓名排序
                     if (strcmp(users[a].name, users[b].name) > 0) swap = 1;
                     break;
-                case 2:
+                case 1: // 按年龄升序
                     if (users[a].age > users[b].age) swap = 1;
                     break;
-                case 3:
+                case 2: // 按年龄降序
                     if (users[a].age < users[b].age) swap = 1;
                     break;
-                case 4:
+                case 3: // 按身份证号排序
                     if (strcmp(users[a].idCard, users[b].idCard) > 0) swap = 1;
                     break;
             }
@@ -542,13 +626,17 @@ void unregisterPhone() {
     
     if (phoneManager == NULL) {
         printError("手机号管理系统未初始化！");
-        system("pause");
+        // system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
     int userIndex = validateAndGetUserIndex();
     if (userIndex == -1) {
-        system("pause");
+        // system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
@@ -559,7 +647,9 @@ void unregisterPhone() {
 
     if (phoneCount == 0) {
         printError("该用户没有绑定的手机号！");
-        system("pause");
+        // system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
@@ -587,7 +677,9 @@ void unregisterPhone() {
         }
     }
 
-    system("pause");
+    // system("pause");
+    printf(YELLOW "\n    按任意键继续..." RESET);
+    _getch();
 }
 
 void registerPhoneForUser(int userId) {
@@ -596,7 +688,8 @@ void registerPhoneForUser(int userId) {
     
     if (phoneManager == NULL) {
         printError("手机号管理系统未初始化！");
-        system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
@@ -604,7 +697,8 @@ void registerPhoneForUser(int userId) {
     if (userId == -1) {
         userId = validateAndGetUserIndex();
         if (userId == -1) {
-            system("pause");
+            printf(YELLOW "\n    按任意键继续..." RESET);
+            _getch();
             return;
         }
     }
@@ -612,17 +706,23 @@ void registerPhoneForUser(int userId) {
     // 检查用户手机号数量限制
     if (getUserPhoneCount(phoneManager, userId) >= MAX_PHONE_PER_USER) {
         printError("该用户已达最大手机号数量，无法继续注册！");
-        system("pause");
+        printf(YELLOW "\n    按任意键继续..." RESET);
+        _getch();
         return;
     }
 
-    char phoneNum[MAX_PHONE_LENGTH];
-    printf("\n    1. 手动输入手机号\n");
-    printf("    2. 从号段随机选号\n");
+    const char* phoneOptions[] = {
+        "手动输入手机号",
+        "从号段随机选号"
+    };
+    const int optionCount = sizeof(phoneOptions) / sizeof(phoneOptions[0]);
     
-    int choice = safeIntInput("请选择：", 1, 2);
+    int choice = makeSelection(phoneOptions, optionCount, "选择手机号获取方式");
+    if (choice == -1) return;
 
-    if (choice == 1) {
+    char phoneNum[MAX_PHONE_LENGTH];
+
+    if (choice == 0) {
         // 手动输入手机号
         while (1) {
             safeStringInput(phoneNum, sizeof(phoneNum), "请输入11位手机号：");
@@ -637,11 +737,12 @@ void registerPhoneForUser(int userId) {
                 printError("手机号格式错误，请重新输入！");
             }
         }
-    } else if (choice == 2) {
+    } else if (choice == 1) {
         // 随机选择可用号码
         if (selectRandomPhone(phoneManager, phoneNum) != 1) {
             printError("没有可用的手机号，请手动输入！");
-            system("pause");
+            printf(YELLOW "\n    按任意键继续..." RESET);
+            _getch();
             return;
         }
         printf("    随机分配的手机号：%s\n", phoneNum);
@@ -654,5 +755,6 @@ void registerPhoneForUser(int userId) {
     } else {
         printError("手机号注册失败！");
     }
-    system("pause");
+    printf(YELLOW "\n    按任意键继续..." RESET);
+    _getch();
 }
