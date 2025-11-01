@@ -92,7 +92,7 @@ int findPhoneIndex(PhoneManager *manager,
 const PhoneResource* getPhoneResourceByIndex(const PhoneManager 
                                     *manager, int index);   // 获取手机号资源指针
 
-// 文件操作预留接口
+// 文件操作接口
 int savePhoneResource(const PhoneManager *manager, 
                         const char *fileName);              // 保存手机号资源到文件
 int loadPhoneResource(PhoneManager *manager, 
