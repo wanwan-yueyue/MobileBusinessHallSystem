@@ -70,3 +70,15 @@ void cleanupGlobalResources() {
     // 重置用户数据
     initGlobalVariables();
 }
+
+/**
+ * @brief 设置手机号管理器实例
+ * @param manager: 新的手机号管理器指针
+ * @retval 无
+ */
+void setPhoneManager(PhoneManager* manager) {
+    if (phoneManager != NULL) {
+        cleanupPhoneManager(phoneManager);
+    }
+    phoneManager = manager;
+}

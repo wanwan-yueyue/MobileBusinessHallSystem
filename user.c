@@ -94,14 +94,19 @@ int findUserIndexById(const char* idCard) {
 }
 
 int findUserIndexByPhone(const char* phoneNum) {
-    if (phoneNum == NULL || phoneManager == NULL) {
+    if (phoneNum == NULL) {
         return -1;
     }
     
-    for (int i = 0; i < phoneManager->count; i++) {
-        if (phoneManager->phones[i].status == PHONE_STATUS_ASSIGNED &&
-            strcmp(phoneManager->phones[i].phoneNumber, phoneNum) == 0) {
-            return phoneManager->phones[i].userId;
+    PhoneManager* phoneMgr = getPhoneManager();
+    if (phoneMgr == NULL) {
+        return -1;
+    }
+    
+    for (int i = 0; i < phoneMgr->count; i++) {
+        if (phoneMgr->phones[i].status == PHONE_STATUS_ASSIGNED &&
+            strcmp(phoneMgr->phones[i].phoneNumber, phoneNum) == 0) {
+            return phoneMgr->phones[i].userId;
         }
     }
     return -1;

@@ -439,7 +439,57 @@ void clearInputBuffer()
 	while ((c = getchar()) != '\n' && c != EOF);
 }
 
+/**
+ * @brief  根据身份证前2位获取省份信息
+ * @param  idCard: 身份证号码字符串
+ * @retval 省份字符串
+ * @author 系统开发组
+ * @date   2025-11-1
+ */
+const char* getProvinceFromIDCard(const char* idCard) {
+    if (idCard == NULL || strlen(idCard) < 2) {
+        return "未知";
+    }
 
+    // 提取身份证前2位（省级代码）
+    char provinceCode[3] = { 0 };
+    strncpy_s(provinceCode, sizeof(provinceCode), idCard, 2);
+
+    // 省级代码映射
+    if (strcmp(provinceCode, "11") == 0) return "北京市";
+    if (strcmp(provinceCode, "12") == 0) return "天津市";
+    if (strcmp(provinceCode, "13") == 0) return "河北省";
+    if (strcmp(provinceCode, "14") == 0) return "山西省";
+    if (strcmp(provinceCode, "15") == 0) return "内蒙古自治区";
+    if (strcmp(provinceCode, "21") == 0) return "辽宁省";
+    if (strcmp(provinceCode, "22") == 0) return "吉林省";
+    if (strcmp(provinceCode, "23") == 0) return "黑龙江省";
+    if (strcmp(provinceCode, "31") == 0) return "上海市";
+    if (strcmp(provinceCode, "32") == 0) return "江苏省";
+    if (strcmp(provinceCode, "33") == 0) return "浙江省";
+    if (strcmp(provinceCode, "34") == 0) return "安徽省";
+    if (strcmp(provinceCode, "35") == 0) return "福建省";
+    if (strcmp(provinceCode, "36") == 0) return "江西省";
+    if (strcmp(provinceCode, "37") == 0) return "山东省";
+    if (strcmp(provinceCode, "41") == 0) return "河南省";
+    if (strcmp(provinceCode, "42") == 0) return "湖北省";
+    if (strcmp(provinceCode, "43") == 0) return "湖南省";
+    if (strcmp(provinceCode, "44") == 0) return "广东省";
+    if (strcmp(provinceCode, "45") == 0) return "广西壮族自治区";
+    if (strcmp(provinceCode, "46") == 0) return "海南省";
+    if (strcmp(provinceCode, "50") == 0) return "重庆市";
+    if (strcmp(provinceCode, "51") == 0) return "四川省";
+    if (strcmp(provinceCode, "52") == 0) return "贵州省";
+    if (strcmp(provinceCode, "53") == 0) return "云南省";
+    if (strcmp(provinceCode, "54") == 0) return "西藏自治区";
+    if (strcmp(provinceCode, "61") == 0) return "陕西省";
+    if (strcmp(provinceCode, "62") == 0) return "甘肃省";
+    if (strcmp(provinceCode, "63") == 0) return "青海省";
+    if (strcmp(provinceCode, "64") == 0) return "宁夏回族自治区";
+    if (strcmp(provinceCode, "65") == 0) return "新疆维吾尔自治区";
+
+    return "未知";
+}
 // int main(void){
 //     // 测试身份证验证函数
 //     const char *testID = "310104199211056720";      
