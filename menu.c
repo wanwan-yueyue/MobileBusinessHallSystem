@@ -207,3 +207,41 @@ void showMainMenu() {
         }
     }
 }
+
+int makeSelection(const char *options[], int count, const char *title) {
+    int choice = 0;
+    
+    while (1) {
+        clearScreen();
+        
+        // 显示标题
+        if (title) {
+            printSectionTitle(title);
+        }
+        
+        // 显示选项
+        for (int i = 0; i < count; i++) {
+            printMenuItem(i, options[i], i == choice);
+        }
+        
+        // 底部提示
+        printf("\n");
+        printLeftColor("使用 ↑↓ 键选择，Enter 键确认", GRAY);
+        printLeftColor("ESC 键返回上一级", GRAY);
+        
+        // 键盘输入处理
+        int key = _getch();
+        if (key == 224) { // 特殊键
+            key = _getch();
+            if (key == 72) { // ↑ 键
+                choice = (choice - 1 + count) % count;
+            } else if (key == 80) { // ↓ 键
+                choice = (choice + 1) % count;
+            }
+        } else if (key == 13) { // Enter 键
+            return choice;
+        } else if (key == 27) { // ESC 键返回
+            return -1;
+        }
+    }
+}

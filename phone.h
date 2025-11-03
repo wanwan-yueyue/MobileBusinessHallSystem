@@ -91,11 +91,28 @@ int findPhoneIndex(PhoneManager *manager,
                    const char *phoneNumber);                // 查找手机号索引位置
 const PhoneResource* getPhoneResourceByIndex(const PhoneManager 
                                     *manager, int index);   // 获取手机号资源指针
+int getAvailablePhones(PhoneManager* manager,
+            char phones[][MAX_PHONE_LENGTH], int maxCount); // 获取多个可用手机号
+int getAllSegments(PhoneManager *manager, 
+        char segments[][MAX_SEGMENT_LENGTH], int maxCount); // 获取所有可用号段
+int getAvailablePhonesBySegment(PhoneManager *manager, 
+    const char *segment, char phones[][MAX_PHONE_LENGTH], 
+    int maxCount);                                          // 根据号段获取可用的手机号
+int getSegmentCategories(PhoneManager *manager, 
+    char categories[][MAX_SEGMENT_LENGTH], int maxCount);   // 获取号段分类
+int getSegmentsByCategory(PhoneManager *manager, const char *category, 
+        char segments[][MAX_SEGMENT_LENGTH], int maxCount); // 根据分类获取具体号段
+void sortPhoneNumbers(char phones[][MAX_PHONE_LENGTH], 
+                                        int count);         // 对手机号数组具体进行排序
+int getAvailablePhoneCountByCategory(PhoneManager *manager, 
+                            const char *category);          // 根据分类获取可用手机号数量
+int getAvailablePhoneCountBySegment(PhoneManager *manager, 
+                            const char *segment);           // 根据具体号段获取可用手机号数量
 
 // 文件操作接口
 int savePhoneResource(const PhoneManager *manager, 
                         const char *fileName);              // 保存手机号资源到文件
 int loadPhoneResource(PhoneManager *manager, 
                         const char *fileName);              // 从文件加载手机号资源
-
+                  
 #endif // _PHONE_H_

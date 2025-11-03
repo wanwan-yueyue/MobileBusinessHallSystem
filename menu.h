@@ -25,6 +25,7 @@ void showTitle();
 void showMainMenu();
 void clearScreen();
 void handleMenuChoice(int choice);
+int makeSelection(const char *options[], int count, const char *title);
 
 // ========== 统一样式函数声明 ==========
 void printLeft(const char* text);

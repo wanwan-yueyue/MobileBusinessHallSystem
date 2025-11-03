@@ -34,7 +34,7 @@ int safeIntInput(const char* prompt, int min, int max) {
     int value;
     while (1) {
         if (prompt) printf("    %s", prompt);
-        if (scanf_s("%d", &value) == 1 && value >= min && value <= max) {
+        if (scanf("%d", &value) == 1 && value >= min && value <= max) {
             safeClearInputBuffer();
             return value;
         }
@@ -47,42 +47,6 @@ void safeClearInputBuffer() {
     clearInputBuffer();
 }
 
-int makeSelection(const char *options[], int count, const char *title) {
-    int choice = 0;
-    
-    while (1) {
-        clearScreen();
-        
-        // 显示标题
-        if (title) {
-            printSectionTitle(title);
-        }
-        
-        // 显示选项
-        for (int i = 0; i < count; i++) {
-            printMenuItem(i, options[i], i == choice);
-        }
-        
-        // 底部提示
-        printf("\n");
-        printLeftColor("使用 ↑↓ 键选择，Enter 键确认", GRAY);
-        
-        // 键盘输入处理
-        int key = _getch();
-        if (key == 224) { // 特殊键
-            key = _getch();
-            if (key == 72) { // ↑ 键
-                choice = (choice - 1 + count) % count;
-            } else if (key == 80) { // ↓ 键
-                choice = (choice + 1) % count;
-            }
-        } else if (key == 13) { // Enter 键
-            return choice;
-        } else if (key == 27) { // ESC 键返回
-            return -1;
-        }
-    }
-}
 
 // ========== 核心界面功能 ==========
 
@@ -98,39 +62,40 @@ void addUserInterface() {
 
     User newUser;
     memset(&newUser, 0, sizeof(User));
-    
+
     // 输入基本信息
     safeStringInput(newUser.name, sizeof(newUser.name), "请输入姓名(不超过19字): ");
-    
+
     // 输入身份证号
     while (1) {
         safeStringInput(newUser.idCard, sizeof(newUser.idCard), "请输入18位身份证号: ");
-        
+
         if (isValidIdCard(newUser.idCard)) {
             if (isIdCardUnique(newUser.idCard)) {
                 break;
-            } else {
+            }
+            else {
                 printError("该身份证号已被其他用户使用，请重新输入！");
             }
-        } else {
+        }
+        else {
             printError("身份证号格式错误，请重新输入！");
         }
     }
 
     // 自动从身份证号码中获取性别和年龄
     const char* gender = getGenderFromIDCard(newUser.idCard);
-    if(strcmp(gender,"未知") == 0){
+    if (strcmp(gender, "未知") == 0) {
         printError("无法从身份证号码中识别性别，请手动输入！");
         // 手动输入性别
-        while (1) {
-            safeStringInput(newUser.gender, sizeof(newUser.gender), "请输入性别（男/女）：");
-            if(strcmp(newUser.gender, "男") == 0 || strcmp(newUser.gender, "女") == 0){
-                break;
-            }
-            printError("性别输入错误，请重新输入（男/女）！");
-        }
-    } else {
-        strcpy_s(newUser.gender, sizeof(newUser.gender), gender);
+        const char* genderOptions[] = {"男", "女", "其他"};
+        int genderChoice = makeSelection(genderOptions, 3, "选择性别");
+        if (genderChoice == 0) strcpy(newUser.gender, "男");
+        else if (genderChoice == 1) strcpy(newUser.gender, "女");
+        else strcpy(newUser.gender, "其他");
+    }
+    else {
+        strcpy(newUser.gender, gender);
         printf(GREEN "    ✓ 自动识别性别: %s\n" RESET, gender);
     }
 
@@ -140,29 +105,40 @@ void addUserInterface() {
         printError("无法从身份证号计算年龄，请手动输入！");
         safeClearInputBuffer();
         newUser.age = safeIntInput("请输入年龄(1-120): ", 1, 120);
-    } else {
+    }
+    else {
         newUser.age = age;
         printf(GREEN "    ✓ 自动计算年龄: %d\n" RESET, age);
+    }
+
+    // 自动从身份证获取省份信息
+    const char* autoProvince = getProvinceFromIDCard(newUser.idCard);
+    if (strcmp(autoProvince, "未知") != 0) {
+        printf(GREEN "    ✓ 自动识别省份: %s\n" RESET, autoProvince);
     }
 
     // 输入职业和地址
     safeClearInputBuffer();
     safeStringInput(newUser.job, sizeof(newUser.job), "请输入职业(不超过29字): ");
-    safeStringInput(newUser.address, sizeof(newUser.address), "请输入地址(不超过49字): ");
+    safeStringInput(newUser.address, sizeof(newUser.address), "请输入详细地址(不超过49字): ");
 
     newUser.status = USER_ACTIVE;
 
     int userIndex = addUser(&newUser);
     if (userIndex >= 0) {
         printSuccess("用户添加成功！");
-        
-        int registerChoice = safeIntInput("是否立即注册手机号？(1-是/0-否): ", 0, 1);
-        if (registerChoice == 1) {
+
+        // 使用箭头键选择是否立即注册手机号
+        const char* registerOptions[] = {"立即注册手机号", "稍后注册"};
+        int registerChoice = makeSelection(registerOptions, 2, "是否立即注册手机号？");
+        if (registerChoice == 0) {
             registerPhoneForUserInterface(userIndex);
-        } else {
+        }
+        else {
             saveData();
         }
-    } else {
+    }
+    else {
         printError("用户添加失败！");
     }
 }
@@ -243,36 +219,46 @@ void displayUserDetailsInterface(int userIndex) {
         printError("用户不存在！");
         return;
     }
-    
+
     printSectionTitle("用户信息");
-    
+
     printInfo("姓名", user->name);
     printInfo("性别", user->gender);
     printInfoInt("年龄", user->age);
     printInfo("身份证号", user->idCard);
+
+    // 显示自动识别的省份信息
+    const char* autoProvince = getProvinceFromIDCard(user->idCard);
+    if (strcmp(autoProvince, "未知") != 0) {
+        printf(MAGENTA "    户籍省份：" RESET "%s\n", autoProvince);
+    }
+
+    printInfo("详细地址", user->address);
     printInfo("职业", user->job);
-    printInfo("地址", user->address);
     printf(WHITE "    状态：" RESET "%s\n", user->status == USER_ACTIVE ? "活跃" : "已注销");
 
     // 显示手机号
     printf(WHITE "    手机号：" RESET);
-    if (phoneManager != NULL) {
+    PhoneManager* phoneMgr = getPhoneManager();
+    if (phoneMgr != NULL) {
         char userPhones[MAX_PHONE_PER_USER][MAX_PHONE_LENGTH];
         int phoneCount = 0;
-        getUserPhones(phoneManager, userIndex, userPhones, &phoneCount);
-        
+        getUserPhones(phoneMgr, userIndex, userPhones, &phoneCount);
+
         if (phoneCount > 0) {
             for (int i = 0; i < phoneCount; i++) {
                 printf("%s  ", userPhones[i]);
             }
-        } else {
+        }
+        else {
             printf("无");
         }
-    } else {
+    }
+    else {
         printf("手机号系统未初始化");
     }
     printf("\n");
-    
+
     printSeparator();
     waitForAnyKey();
 }
@@ -400,7 +386,7 @@ void showAllUsersInterface() {
     printf("    共%d位用户:\n\n", getActiveUserCount());
     User allUsers[MAX_USERS];
     int count = getAllActiveUsers(allUsers, MAX_USERS);
-    
+
     for (int i = 0; i < count; i++) {
         User* user = &allUsers[i];
         printf(WHITE "    用户%d:\n" RESET, i + 1);
@@ -408,64 +394,79 @@ void showAllUsersInterface() {
         printInfo("性别", user->gender);
         printInfoIntMagenta("年龄", user->age);
         printInfo("身份证号", user->idCard);
+
+        // 显示自动识别的省份信息
+        const char* autoProvince = getProvinceFromIDCard(user->idCard);
+        if (strcmp(autoProvince, "未知") != 0) {
+            printf(MAGENTA "    户籍省份：" RESET "%s\n", autoProvince);
+        }
+
         printInfo("职业", user->job);
         printInfo("地址", user->address);
         printf(WHITE "    状态：" RESET "%s\n", user->status == USER_ACTIVE ? "活跃" : "已注销");
 
         // 显示手机号
         printf(WHITE "    手机号：" RESET);
-        if (phoneManager != NULL) {
+        PhoneManager* phoneMgr = getPhoneManager();
+        if (phoneMgr != NULL) {
             char userPhones[MAX_PHONE_PER_USER][MAX_PHONE_LENGTH];
             int phoneCount = 0;
             int userIndex = findUserIndexById(user->idCard);
-            getUserPhones(phoneManager, userIndex, userPhones, &phoneCount);
+            getUserPhones(phoneMgr, userIndex, userPhones, &phoneCount);
 
             if (phoneCount > 0) {
                 for (int j = 0; j < phoneCount; j++) {
                     printf("%s  ", userPhones[j]);
                 }
-            } else {
+            }
+            else {
                 printf("无");
             }
-        } else {
+        }
+        else {
             printf("手机号系统未初始化");
         }
         printf("\n\n");
     }
 
-    if (safeIntInput("是否需要排序显示？(1-是/0-否): ", 0, 1) == 1) {
-        // 排序功能
-        const char* sortOptions[] = {
-            "按姓名排序",
-            "按年龄升序", 
-            "按年龄降序",
-            "按身份证号排序"
-        };
-        
-        int sortChoice = makeSelection(sortOptions, 4, "选择排序方式");
-        if (sortChoice != -1) {
-            switch (sortChoice) {
-                case 0: sortUsersByName(allUsers, count); break;
-                case 1: sortUsersByAge(allUsers, count, true); break;
-                case 2: sortUsersByAge(allUsers, count, false); break;
-                case 3: sortUsersByIdCard(allUsers, count); break;
+    // 排序选择使用箭头键
+    const char* sortOptions[] = {
+        "按姓名排序",
+        "按年龄升序",
+        "按年龄降序", 
+        "按身份证号排序",
+        "不排序，返回"
+    };
+
+    int sortChoice = makeSelection(sortOptions, 5, "选择排序方式");
+    if (sortChoice >= 0 && sortChoice < 4) {
+        switch (sortChoice) {
+        case 0: sortUsersByName(allUsers, count); break;
+        case 1: sortUsersByAge(allUsers, count, true); break;
+        case 2: sortUsersByAge(allUsers, count, false); break;
+        case 3: sortUsersByIdCard(allUsers, count); break;
+        }
+
+        // 显示排序结果
+        clearScreen();
+        printSectionTitle("排序后用户信息");
+        for (int i = 0; i < count; i++) {
+            User* user = &allUsers[i];
+            printf(WHITE "    用户%d:\n" RESET, i + 1);
+            printInfo("姓名", user->name);
+            printInfo("性别", user->gender);
+            printInfoInt("年龄", user->age);
+            printInfo("身份证号", user->idCard);
+
+            // 显示自动识别的省份信息
+            const char* autoProvince = getProvinceFromIDCard(user->idCard);
+            if (strcmp(autoProvince, "未知") != 0) {
+                printf(MAGENTA "    户籍省份：" RESET "%s\n", autoProvince);
             }
-            
-            // 显示排序结果
-            clearScreen();
-            printSectionTitle("排序后用户信息");
-            for (int i = 0; i < count; i++) {
-                User* user = &allUsers[i];
-                printf(WHITE "    用户%d:\n" RESET, i + 1);
-                printInfo("姓名", user->name);
-                printInfo("性别", user->gender);
-                printInfoInt("年龄", user->age);
-                printInfo("身份证号", user->idCard);
-                printf("\n");
-            }
+            printf("\n");
         }
     }
-    
+
     waitForAnyKey();
 }
 
@@ -492,7 +493,7 @@ void unregisterPhoneInterface() {
     // 获取用户当前手机号
     char userPhones[MAX_PHONE_PER_USER][MAX_PHONE_LENGTH];
     int phoneCount = 0;
-    getUserPhones(phoneManager, userIndex, userPhones, &phoneCount);
+    getUserPhones(getPhoneManager(), userIndex, userPhones, &phoneCount);
 
     if (phoneCount == 0) {
         printError("该用户没有绑定的手机号！");
@@ -500,24 +501,28 @@ void unregisterPhoneInterface() {
         return;
     }
 
-    printf("    该用户当前绑定的手机号：\n");
+    // 创建手机号选项数组
+    char* phoneOptions[MAX_PHONE_PER_USER + 1];
     for (int i = 0; i < phoneCount; i++) {
-        printf("    %d. %s\n", i + 1, userPhones[i]);
+        phoneOptions[i] = (char*)malloc(MAX_PHONE_LENGTH + 10);
+        snprintf(phoneOptions[i], MAX_PHONE_LENGTH + 10, "%s", userPhones[i]);
+    }
+    phoneOptions[phoneCount] = "返回上一级";
+
+    int choice = makeSelection((const char**)phoneOptions, phoneCount + 1, "选择要注销的手机号");
+    
+    // 释放内存
+    for (int i = 0; i < phoneCount; i++) {
+        free(phoneOptions[i]);
     }
 
-    if (phoneCount == 1) {
-        // 只有一个手机号，直接注销
-        if (cancelPhone(phoneManager, userIndex, userPhones[0])) {
-            printf(GREEN "    ✓ 手机号 %s 注销成功！\n" RESET, userPhones[0]);
-            saveData();
-        } else {
-            printError("手机号注销失败！");
-        }
-    } else {
-        // 多个手机号，让用户选择
-        int choice = safeIntInput("请选择要注销的手机号编号: ", 1, phoneCount);
-        if (cancelPhone(phoneManager, userIndex, userPhones[choice - 1])) {
-            printf(GREEN "    ✓ 手机号 %s 注销成功！\n" RESET, userPhones[choice - 1]);
+    if (choice == phoneCount) {
+        return; // 选择返回
+    }
+
+    if (choice >= 0 && choice < phoneCount) {
+        if (cancelPhone(getPhoneManager(), userIndex, userPhones[choice])) {
+            printf(GREEN "    ✓ 手机号 %s 注销成功！\n" RESET, userPhones[choice]);
             saveData();
         } else {
             printError("手机号注销失败！");
@@ -551,7 +556,7 @@ void registerPhoneForUserInterface(int userId) {
     }
 
     // 检查用户手机号数量限制
-    if (getUserPhoneCount(phoneManager, userId) >= MAX_PHONE_PER_USER) {
+    if (getUserPhoneCount(getPhoneManager(), userId) >= MAX_PHONE_PER_USER) {
         printError("该用户已达最大手机号数量，无法继续注册！");
         waitForAnyKey();
         return;
@@ -559,14 +564,14 @@ void registerPhoneForUserInterface(int userId) {
 
     const char* phoneOptions[] = {
         "手动输入手机号",
-        "从号段随机选号"
+        "从号段随机选号",
+        "返回上一级"
     };
-    const int optionCount = sizeof(phoneOptions) / sizeof(phoneOptions[0]);
     
-    int choice = makeSelection(phoneOptions, optionCount, "选择手机号获取方式");
-    if (choice == -1) return;
+    int choice = makeSelection(phoneOptions, 3, "选择手机号获取方式");
+    if (choice == 2) return;
 
-    char phoneNum[MAX_PHONE_LENGTH];
+    char phoneNum[MAX_PHONE_LENGTH] = {0};
 
     if (choice == 0) {
         // 手动输入手机号
@@ -574,7 +579,7 @@ void registerPhoneForUserInterface(int userId) {
             safeStringInput(phoneNum, sizeof(phoneNum), "请输入11位手机号：");
             
             if (isValidPhoneNumber(phoneNum)) {
-                if (isPhoneUnique(phoneManager, phoneNum)) {
+                if (isPhoneUnique(getPhoneManager(), phoneNum)) {
                     break;
                 } else {
                     printError("该手机号已被使用，请重新输入！");
@@ -584,17 +589,214 @@ void registerPhoneForUserInterface(int userId) {
             }
         }
     } else if (choice == 1) {
-        // 随机选择可用号码
-        if (selectRandomPhone(phoneManager, phoneNum) != 1) {
-            printError("没有可用的手机号，请手动输入！");
-            waitForAnyKey();
-            return;
+        // 从号段选择手机号 - 使用箭头键选择
+        char selectedCategory[3] = {0};
+        char selectedSegment[4] = {0};
+        int refreshCount = 0;
+        char availablePhones[10][MAX_PHONE_LENGTH];
+
+        // 主循环控制
+        int selectionComplete = 0;
+        while (!selectionComplete) {
+            // 选择号段分类
+            int categorySelected = 0;
+            while (!categorySelected && !selectionComplete) {
+                clearScreen();
+                printSectionTitle("选择号段分类");
+
+                // 获取所有号段分类
+                char categories[10][MAX_SEGMENT_LENGTH];
+                int categoryCount = getSegmentCategories(getPhoneManager(), categories, 10);
+
+                if (categoryCount == 0) {
+                    printError("没有可用的号段分类！");
+                    waitForAnyKey();
+                    return;
+                }
+
+                // 创建分类选项数组
+                char* categoryOptions[11]; // 最多10个分类 + 返回
+                for (int i = 0; i < categoryCount; i++) {
+                    categoryOptions[i] = (char*)malloc(20);
+                    const char* categoryName = "";
+                    if (strcmp(categories[i], "13") == 0) categoryName = "13x 系列";
+                    else if (strcmp(categories[i], "14") == 0) categoryName = "14x 系列";
+                    else if (strcmp(categories[i], "15") == 0) categoryName = "15x 系列";
+                    else if (strcmp(categories[i], "16") == 0) categoryName = "16x 系列";
+                    else if (strcmp(categories[i], "17") == 0) categoryName = "17x 系列";
+                    else if (strcmp(categories[i], "18") == 0) categoryName = "18x 系列";
+                    else if (strcmp(categories[i], "19") == 0) categoryName = "19x 系列";
+                    else categoryName = "其他号段";
+                    
+                    snprintf(categoryOptions[i], 20, "%s (%s)", categories[i], categoryName);
+                }
+                categoryOptions[categoryCount] = "返回上一级";
+
+                int categoryChoice = makeSelection((const char**)categoryOptions, categoryCount + 1, "选择号段分类");
+                
+                // 释放内存
+                for (int i = 0; i < categoryCount; i++) {
+                    free(categoryOptions[i]);
+                }
+
+                if (categoryChoice == categoryCount) {
+                    return; // 返回上一级
+                } else if (categoryChoice >= 0 && categoryChoice < categoryCount) {
+                    strcpy(selectedCategory, categories[categoryChoice]);
+                    categorySelected = 1;
+                }
+            }
+
+            // 选择具体号段
+            int segmentSelected = 0;
+            while (!segmentSelected && !selectionComplete && categorySelected) {
+                clearScreen();
+                printSectionTitle("选择具体号段");
+
+                // 获取该分类下的具体号段
+                char segments[20][MAX_SEGMENT_LENGTH];
+                int segmentCount = getSegmentsByCategory(getPhoneManager(), selectedCategory, segments, 20);
+
+                if (segmentCount == 0) {
+                    printError("该分类下没有可用的具体号段！");
+                    waitForAnyKey();
+                    return;
+                }
+
+                // 创建号段选项数组
+                char* segmentOptions[21]; // 最多20个号段 + 返回
+                for (int i = 0; i < segmentCount; i++) {
+                    segmentOptions[i] = (char*)malloc(30);
+                    int segmentPhoneCount = getAvailablePhoneCountBySegment(getPhoneManager(), segments[i]);
+                    snprintf(segmentOptions[i], 30, "%sxxx (可用：%d个)", segments[i], segmentPhoneCount);
+                }
+                segmentOptions[segmentCount] = "返回分类选择";
+
+                int segmentChoice = makeSelection((const char**)segmentOptions, segmentCount + 1, "选择具体号段");
+                
+                // 释放内存
+                for (int i = 0; i < segmentCount; i++) {
+                    free(segmentOptions[i]);
+                }
+
+                if (segmentChoice == segmentCount) {
+                    // 返回分类选择 - 跳出当前循环，重新选择分类
+                    segmentSelected = 0;
+                    categorySelected = 0;
+                    break;
+                } else if (segmentChoice >= 0 && segmentChoice < segmentCount) {
+                    strcpy(selectedSegment, segments[segmentChoice]);
+                    segmentSelected = 1;
+                }
+            }
+
+            // 如果选择了号段，进入手机号选择
+            if (segmentSelected && !selectionComplete) {
+                int phoneSelected = 0;
+                while (!phoneSelected && !selectionComplete) {
+                    clearScreen();
+                    printSectionTitle("选择手机号码");
+
+                    // 获取该号段下的可用手机号
+                    int phoneCount = getAvailablePhonesBySegment(getPhoneManager(), selectedSegment, availablePhones, 10);
+
+                    if (phoneCount == 0) {
+                        printError("该号段没有可用的手机号！");
+                        waitForAnyKey();
+                        // 返回号段选择
+                        segmentSelected = 0;
+                        break;
+                    }
+
+                    // 对手机号进行排序
+                    sortPhoneNumbers(availablePhones, phoneCount);
+
+                    printf("    号段：%s | 刷新次数：%d\n\n", selectedSegment, refreshCount);
+                    printf("    为您推荐以下手机号（已按顺序排列）：\n\n");
+
+                    // 显示手机号选项（使用数字序号）
+                    for (int i = 0; i < phoneCount; i++) {
+                        const char* tailNumber = availablePhones[i] + 7;
+                        
+                        // 根据尾号特征显示提示
+                        const char* tag = "";
+                        if (strcmp(tailNumber, "8888") == 0 || strcmp(tailNumber, "6666") == 0) {
+                            tag = " " RED "【超级靓号】" RESET;
+                        } else if (strcmp(tailNumber, "888") == 0 || strcmp(tailNumber, "666") == 0) {
+                            tag = " " YELLOW "【靓号】" RESET;
+                        } else if (tailNumber[0] == tailNumber[1] && tailNumber[1] == tailNumber[2]) {
+                            tag = " " GREEN "【三连号】" RESET;
+                        }
+                        
+                        printf("    %2d. %s%s\n", i + 1, availablePhones[i], tag);
+                    }
+
+                    // 分隔线
+                    printf("\n");
+                    printSeparator();
+                    printf("\n");
+
+                    // 操作选项（使用字母按键）
+                    printf("    " YELLOW "操作选项：" RESET "\n");
+                    printf("    " CYAN "R" RESET " - 刷新号码列表\n");
+                    printf("    " CYAN "B" RESET " - 返回号段选择\n");
+                    printf("    " CYAN "C" RESET " - 返回分类选择\n");
+                    printf("    " CYAN "ESC" RESET " - 返回主菜单\n");
+
+                    printf("\n");
+                    printLeftColor("请选择：输入数字选择手机号，或按字母键执行操作", CYAN);
+
+                    // 处理用户输入
+                    int key = _getch();
+                    if (key == 27) { // ESC键
+                        return; // 返回主菜单
+                    } else if (key == 'r' || key == 'R') {
+                        // 刷新号码列表
+                        refreshCount++;
+                        continue;
+                    } else if (key == 'b' || key == 'B') {
+                        // 返回号段选择 - 跳出当前循环，重新选择号段
+                        phoneSelected = 0;
+                        segmentSelected = 0;
+                        break;
+                    } else if (key == 'c' || key == 'C') {
+                        // 返回分类选择 - 跳出所有循环，重新选择分类
+                        phoneSelected = 0;
+                        segmentSelected = 0;
+                        categorySelected = 0;
+                        break;
+                    } else if (key >= '1' && key <= '9') {
+                        // 数字键选择手机号
+                        int selection = key - '0';
+                        if (selection >= 1 && selection <= phoneCount) {
+                            strcpy(phoneNum, availablePhones[selection - 1]);
+                            phoneSelected = 1;
+                            selectionComplete = 1;
+                        } else {
+                            printError("无效的选择，请重新输入！");
+                            waitForAnyKey();
+                        }
+                    } else if (key == '0') {
+                        // 处理10号选项
+                        if (phoneCount >= 10) {
+                            strcpy(phoneNum, availablePhones[9]);
+                            phoneSelected = 1;
+                            selectionComplete = 1;
+                        } else {
+                            printError("无效的选择，请重新输入！");
+                            waitForAnyKey();
+                        }
+                    } else {
+                        printError("无效的输入，请重新选择！");
+                        waitForAnyKey();
+                    }
+                }
+            }
         }
-        printf("    随机分配的手机号：%s\n", phoneNum);
     }
 
     // 使用phoneManager注册手机号
-    if (registerPhone(phoneManager, userId, phoneNum)) {
+    if (registerPhone(getPhoneManager(), userId, phoneNum)) {
         printSuccess("手机号注册成功！");
         saveData();
     } else {

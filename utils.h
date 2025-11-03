@@ -42,6 +42,6 @@ const char* getGenderFromIDCard(const char *idCard);                // 性别判
 bool isValidPhoneNumber(const char *phoneNumber);                   // 手机号验证函数
 bool validatePhoneSegment(const char *segment);                     // 手机号段格式验证函数
 void clearInputBuffer();                                            // 清空输入缓冲区函数
-
+const char* getProvinceFromIDCard(const char* idCard);				// 从身份证获取省份信息
 
 #endif // UTILS_H
