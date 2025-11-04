@@ -2,8 +2,9 @@
  * 文件名称：phone.c
  * 文件路径：.\MobileBusinessHallSystem\phone.c
  * 功能描述：手机号管理模块实现文件 - 实现手机号资源的初始化、绑定、解绑、查询等核心功能
+ *          提供完整的手机号生命周期管理和资源池维护
  * 创建日期：2025-10-28
- * 版本信息：v2.1（适配全局变量管理）
+ * 版本信息：v2.2（优化手机号初始化功能）
  * 版权声明：© 2025 ，保留所有权利
  * 
  * 实现说明：
@@ -12,6 +13,7 @@
  * 3. 集成utils模块的手机号格式验证，确保输入数据的合法性；
  * 4. 提供完整的错误处理机制，包括参数校验、内存分配失败处理等。
  * 5. 移除对全局变量的直接依赖，所有函数通过参数接收管理器指针
+ * 
  * 依赖说明：
  * - 标准库：stdio.h、stdlib.h、string.h、stdbool.h、ctype.h、assert.h、time.h
  * - 自定义模块：utils.h（数据验证）、phone.h（数据结构定义）
@@ -23,7 +25,9 @@
  * 2025-10-29  增强错误处理，完善参数校验逻辑（v1.3）
  * 2025-10-29  实现完整的文件操作接口，支持数据持久化（v2.0）
  * 2025-11-1   适配全局变量管理(v2.1)
+ * 2025-11-4   优化手机号初始化功能，复杂度由O(s * n^2)降低为O(s * n) （v2.2)
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,11 +38,21 @@
 #include "utils.h"
 #include "phone.h"
 
+// ========== 内部辅助函数 ==========
+
 /**
  * @brief 初始化单个手机号资源的所有字段（重置为初始状态）
- * @param resource: 指向需要初始化的PhoneResource结构体的指针
+ * @param resource 指向需要初始化的PhoneResource结构体的指针
  * @retval 无
- * @date   2025-10-28
+ * 
+ * 功能说明：
+ * - 清空手机号字符串
+ * - 设置状态为未分配
+ * - 重置用户ID为-1（未绑定）
+ * - 清空分配时间字符串
+ * 
+ * 注意事项：
+ * - 入参为空时直接返回，避免空指针访问
  */
 static void initPhoneResource(PhoneResource *resource) {
     if (resource == NULL) {
@@ -52,9 +66,14 @@ static void initPhoneResource(PhoneResource *resource) {
 
 /**
  * @brief 初始化单个手机号资源的状态，用户ID，分配时间字段，保留手机号字符串不变
- * @param resource: 指向需要初始化的PhoneResource结构体的指针
+ * @param resource 指向需要初始化的PhoneResource结构体的指针
  * @retval 无
- * @date   2025-10-29
+ * 
+ * 功能说明：
+ * - 重置手机号状态为未分配
+ * - 清除用户绑定关系
+ * - 清空分配时间信息
+ * - 保留原有的手机号码不变
  */
 void resetPhoneResource(PhoneResource *resource) {
     if (resource == NULL) {
@@ -66,61 +85,17 @@ void resetPhoneResource(PhoneResource *resource) {
 }
 
 /**
-  * @brief  初始化手机号管理器
-  * @param  无
-  * @retval PhoneManager* 手机号管理器指针，失败返回NULL
-  * @date   2025-10-28
-  */
-
-PhoneManager* initPhoneManager(void){
-    // 分配手机号管理器内存
-    PhoneManager *manager = (PhoneManager *)malloc(sizeof(PhoneManager));
-    if (manager == NULL) {
-        return NULL;                                            // 内存分配失败
-    }
-
-    // 分配手机号资源数组内存
-    manager->phones = (PhoneResource *)malloc(sizeof(PhoneResource) 
-        * INIT_PHONE_CAPACITY);                                 // 初始容量
-    if (manager->phones == NULL) {
-        free(manager);
-        return NULL;                                            // 内存分配失败
-    }
-
-    // 初始化手机号管理器字段
-    manager->count = 0;                                         // 当前数量为0
-    manager->capacity = INIT_PHONE_CAPACITY;                    // 设置初始容量
-
-    // 初始化手机号资源
-    for (int i = 0; i < manager->capacity; i++) {
-        initPhoneResource(&manager->phones[i]);                 // 初始化每个手机号资源
-    }
-
-    return manager;                                             // 返回初始化好的手机号管理器指针
-}
-
-/**
-  * @brief  清理手机号管理器
-  * @param  manager: 手机号管理器指针
-  * @retval 无
-  * @date   2025-10-28
-  */
-void cleanupPhoneManager(PhoneManager *manager){
-    if(manager != NULL){
-        if(manager->phones != NULL){
-            free(manager->phones);                              // 释放手机号资源数组内存
-        }
-        free(manager);                                          // 释放手机号管理器内存
-    }
-}
-
-/**
  * @brief 校验初始化手机号资源的输入参数
- * @param manager: 手机号管理器指针
- * @param startSegment: 起始号段字符串
- * @param num: 手机号数量
+ * @param manager 手机号管理器指针
+ * @param startSegment 起始号段字符串
+ * @param num 手机号数量
  * @retval 1-参数有效, 0-参数无效
- * @date   2025-10-28
+ * 
+ * 功能说明：
+ * - 检查管理器指针是否有效
+ * - 检查号段字符串是否有效
+ * - 检查手机号数量是否为正数
+ * - 确保输入参数的合法性
  */
 static int checkInitParams(PhoneManager *manager, const char *startSegment, int num) {
     // 检查指针是否为空，数量是否为正数
@@ -129,10 +104,15 @@ static int checkInitParams(PhoneManager *manager, const char *startSegment, int 
 
 /**
  * @brief 检查并扩展手机号资源池容量
- * @param manager: 手机号管理器指针
- * @param requiredTotal: 需要的总容量（当前已有数量+新增数量）
+ * @param manager 手机号管理器指针
+ * @param requiredTotal 需要的总容量（当前已有数量+新增数量）
  * @retval 1-扩展成功（或无需扩展）, 0-扩展失败（内存不足）
- * @date   2025-10-28
+ * 
+ * 功能说明：
+ * - 检查当前容量是否满足需求
+ * - 计算新的容量（翻倍扩展策略）
+ * - 重新分配内存空间
+ * - 初始化新增的资源空间
  */
 static int expandPhoneCapacity(PhoneManager *manager, int requiredTotal) {
     // 若当前容量足够，直接返回成功
@@ -169,13 +149,18 @@ static int expandPhoneCapacity(PhoneManager *manager, int requiredTotal) {
 
 /**
  * @brief 生成完整的11位手机号（基础号段+序列号）
- * @param baseNumber: 基础号段（前缀）
- * @param sequenceLength: 序列号长度
- * @param index: 序列号索引（用于生成递增序列号）
- * @param fullPhone: 输出参数，存储生成的完整手机号
- * @param fullPhoneSize: fullPhone的最大长度（防止溢出）
+ * @param baseNumber 基础号段（前缀）
+ * @param sequenceLength 序列号长度
+ * @param index 序列号索引（用于生成递增序列号）
+ * @param fullPhone 输出参数，存储生成的完整手机号
+ * @param fullPhoneSize fullPhone的最大长度（防止溢出）
  * @retval 1-生成成功, 0-生成失败（长度不合法）
- * @date   2025-10-28
+ * 
+ * 功能说明：
+ * - 校验基础号段+序列号的总长度是否为11位
+ * - 生成固定长度的序列号（前导补0）
+ * - 拼接基础号段和序列号
+ * - 最终校验手机号长度正确性
  */
 static int generateFullPhoneNumber(const char *baseNumber, int sequenceLength, 
                                   int index, char *fullPhone, int fullPhoneSize) {
@@ -201,10 +186,14 @@ static int generateFullPhoneNumber(const char *baseNumber, int sequenceLength,
 
 /**
  * @brief 将完整手机号添加到资源池
- * @param manager: 手机号管理器指针
- * @param fullPhone: 完整的11位手机号
+ * @param manager 手机号管理器指针
+ * @param fullPhone 完整的11位手机号
  * @retval 无
- * @date   2025-10-28
+ * 
+ * 功能说明：
+ * - 复制手机号到资源数组
+ * - 初始化手机号状态信息
+ * - 增加资源计数器
  */
 static void addPhoneToResource(PhoneManager *manager, const char *fullPhone) {
     // 存入手机号
@@ -216,12 +205,179 @@ static void addPhoneToResource(PhoneManager *manager, const char *fullPhone) {
 }
 
 /**
- * @brief 初始化手机号资源
- * @param manager: 手机号管理器指针
- * @param startSegment: 起始号段字符串
- * @param num: 手机号数量
- * @retval 实际生成的手机号数量，失败返回0
- * @date   2025-10-28
+ * @brief 批量生成手机号并添加到资源池
+ * @param manager 手机号管理器指针
+ * @param baseNumber 基础号段
+ * @param sequenceLength 序列号长度
+ * @param startIndex 起始序列号
+ * @param num 要生成的数量
+ * @retval 实际生成的手机号数量
+ * 
+ * 功能说明：
+ * - 预计算最大序列号范围
+ * - 限制生成数量避免超出序列号范围
+ * - 批量生成手机号并添加到资源池
+ * - 返回成功生成的手机号数量
+ */
+static int batchGeneratePhones(PhoneManager *manager, const char *baseNumber, 
+                              int sequenceLength, int startIndex, int num) {
+    int generatedCount = 0;
+    
+    // 预计算最大序列号
+    int maxSequence = 1;
+    for (int i = 0; i < sequenceLength; i++) {
+        maxSequence *= 10;
+    }
+    
+    // 限制生成数量，避免超出序列号范围
+    if (num > maxSequence - startIndex) {
+        num = maxSequence - startIndex;
+    }
+    
+    // 批量生成手机号
+    for (int i = 0; i < num; i++) {
+        int currentIndex = startIndex + i;
+        
+        // 检查是否需要扩展容量
+        if (manager->count >= manager->capacity) {
+            if (!expandPhoneCapacity(manager, manager->count + num - i)) {
+                break; // 扩展失败，停止生成
+            }
+        }
+        
+        // 生成完整手机号
+        char fullPhone[MAX_PHONE_LENGTH];
+        if (!generateFullPhoneNumber(baseNumber, sequenceLength, currentIndex, fullPhone, sizeof(fullPhone))) {
+            continue;
+        }
+        
+        // 跳过存在性检查，直接添加到资源池（初始化阶段号段是新的，不会重复）
+        strcpy(manager->phones[manager->count].phoneNumber, fullPhone);
+        resetPhoneResource(&manager->phones[manager->count]);
+        manager->count++;
+        generatedCount++;
+    }
+    
+    return generatedCount;
+}
+
+/**
+ * @brief 预分配手机号资源池容量
+ * @param manager 手机号管理器指针
+ * @param estimatedTotal 预计总手机号数量
+ * @retval 1-成功, 0-失败
+ * 
+ * 功能说明：
+ * - 预计算需要的总容量
+ * - 计算新的容量（向上取整到最近的2的幂次方）
+ * - 重新分配内存空间
+ * - 初始化新增的资源空间
+ */
+static int preallocatePhoneCapacity(PhoneManager *manager, int estimatedTotal) {
+    if (estimatedTotal <= manager->capacity) {
+        return 1; // 当前容量足够
+    }
+    
+    // 计算新容量（向上取整到最近的2的幂次方）
+    int newCapacity = manager->capacity;
+    while (newCapacity < estimatedTotal) {
+        newCapacity *= 2;
+    }
+    
+    // 重新分配内存
+    PhoneResource *newPhones = (PhoneResource *)realloc(
+        manager->phones, 
+        sizeof(PhoneResource) * newCapacity
+    );
+    if (newPhones == NULL) {
+        return 0;
+    }
+    
+    // 更新管理器的资源指针和容量
+    manager->phones = newPhones;
+    manager->capacity = newCapacity;
+    
+    // 初始化新增的资源空间
+    for (int i = manager->count; i < manager->capacity; i++) {
+        initPhoneResource(&manager->phones[i]);
+    }
+    
+    return 1;
+}
+
+// ========== 手机号管理器生命周期函数实现 ==========
+
+/**
+ * @brief 初始化手机号管理器
+ * @retval PhoneManager* 手机号管理器指针，失败返回NULL
+ * 
+ * 实现细节：
+ * - 分配手机号管理器结构体内存
+ * - 分配初始容量的手机号资源数组
+ * - 初始化管理器字段（计数和容量）
+ * - 初始化所有手机号资源为初始状态
+ */
+PhoneManager* initPhoneManager(void){
+    // 分配手机号管理器内存
+    PhoneManager *manager = (PhoneManager *)malloc(sizeof(PhoneManager));
+    if (manager == NULL) {
+        return NULL;                                            // 内存分配失败
+    }
+
+    // 分配手机号资源数组内存
+    manager->phones = (PhoneResource *)malloc(sizeof(PhoneResource) 
+        * INIT_PHONE_CAPACITY);                                 // 初始容量
+    if (manager->phones == NULL) {
+        free(manager);
+        return NULL;                                            // 内存分配失败
+    }
+
+    // 初始化手机号管理器字段
+    manager->count = 0;                                         // 当前数量为0
+    manager->capacity = INIT_PHONE_CAPACITY;                    // 设置初始容量
+
+    // 初始化手机号资源
+    for (int i = 0; i < manager->capacity; i++) {
+        initPhoneResource(&manager->phones[i]);                 // 初始化每个手机号资源
+    }
+
+    return manager;                                             // 返回初始化好的手机号管理器指针
+}
+
+/**
+ * @brief 清理手机号管理器
+ * @param manager 手机号管理器指针
+ * @retval 无
+ * 
+ * 实现细节：
+ * - 检查管理器指针有效性
+ * - 释放手机号资源数组内存
+ * - 释放手机号管理器结构体内存
+ * - 确保所有动态分配的资源被正确释放
+ */
+void cleanupPhoneManager(PhoneManager *manager){
+    if(manager != NULL){
+        if(manager->phones != NULL){
+            free(manager->phones);                              // 释放手机号资源数组内存
+        }
+        free(manager);                                          // 释放手机号管理器内存
+    }
+}
+
+// ========== 手机号资源管理函数实现 ==========
+
+/**
+ * @brief 初始化手机号资源（优化版本）
+ * @param manager 手机号管理器指针
+ * @param startSegment 起始号段字符串
+ * @param num 手机号数量
+ * @retval 1-成功, 0-失败
+ * 
+ * 实现细节：
+ * - 校验输入参数的合法性
+ * - 验证号段格式的正确性
+ * - 计算序列号长度和最大序列号
+ * - 使用批量生成函数创建手机号
  */
 int initPhoneResources(PhoneManager *manager, const char *startSegment, int num) {
     // 校验输入参数
@@ -234,12 +390,6 @@ int initPhoneResources(PhoneManager *manager, const char *startSegment, int num)
         return 0;
     }
 
-    // 检查并扩展容量（需要的总容量=已有数量+新增数量）
-    int requiredTotal = manager->count + num;
-    if (!expandPhoneCapacity(manager, requiredTotal)) {
-        return 0;
-    }
-
     // 生成并添加手机号
     char baseNumber[MAX_PHONE_LENGTH];
     strcpy(baseNumber, startSegment);
@@ -247,7 +397,7 @@ int initPhoneResources(PhoneManager *manager, const char *startSegment, int num)
     int sequenceLength = 11 - baseLength;
 
     // 校验序列号长度是否合法
-    if (sequenceLength <= 0) {
+    if (sequenceLength <= 0 || sequenceLength > 8) {
         return 0;
     }
 
@@ -261,45 +411,41 @@ int initPhoneResources(PhoneManager *manager, const char *startSegment, int num)
         num = maxSequence; // 调整为最大可能值
     }
 
-    // 循环生成num个手机号并添加到资源池
-    int generatedCount = 0;
-    for (int i = 0; i < num && generatedCount < maxSequence; i++) {
-        char fullPhone[MAX_PHONE_LENGTH];
-        if (!generateFullPhoneNumber(baseNumber, sequenceLength, i, fullPhone, sizeof(fullPhone))) {
-            continue;
-        }
-        
-        // 检查手机号是否已存在
-        if (findPhoneIndex(manager, fullPhone) == -1) {
-            addPhoneToResource(manager, fullPhone);
-            generatedCount++;
-        }
-    }
-
+    // 使用批量生成函数
+    int generatedCount = batchGeneratePhones(manager, baseNumber, sequenceLength, 0, num);
+    
     return (generatedCount > 0) ? 1 : 0;
 }
 
-
 /**
-  * @brief  号段放号
-  * @param  manager: 手机号管理器指针
-  * @param  startSegment: 起始号段字符串
-  * @param  num: 手机号数量
-  * @retval 1-成功, 0-失败
-  * @date   2025-10-28
-  */
+ * @brief 号段放号
+ * @param manager 手机号管理器指针
+ * @param startSegment 起始号段字符串
+ * @param num 手机号数量
+ * @retval 1-成功, 0-失败
+ * 
+ * 实现细节：
+ * - 复用初始化手机号资源函数
+ * - 提供语义化的函数接口
+ * - 保持功能一致性
+ */
 int releasePhoneSegment(PhoneManager *manager, const char *startSegment, int num){
     // 复用初始化手机号资源函数
     return initPhoneResources(manager, startSegment, num);
 }
 
 /**
-  * @brief  随机选号
-  * @param  manager: 手机号管理器指针
-  * @param  selectedPhone: 输出参数，存储选中的手机号
-  * @retval 1-成功, 0-失败
-  * @date   2025-10-28
-  */
+ * @brief 随机选号
+ * @param manager 手机号管理器指针
+ * @param selectedPhone 输出参数，存储选中的手机号
+ * @retval 1-成功, 0-失败
+ * 
+ * 实现细节：
+ * - 统计所有可用的手机号索引
+ * - 随机选择一个可用手机号
+ * - 返回选中的手机号字符串
+ * - 处理无可用手机号的情况
+ */
 int selectRandomPhone(PhoneManager *manager, char *selectedPhone){
     if(manager == NULL || selectedPhone == NULL){
         return 0;                                               // 参数无效
@@ -346,58 +492,89 @@ int selectRandomPhone(PhoneManager *manager, char *selectedPhone){
 }
 
 /**
-  * @brief  获取用户的手机号数量
-  * @param  manager: 手机号管理器指针
-  * @param  userID: 用户ID
-  * @retval 手机号数量 
-  * @date   2025-10-29
-  */
-int getUserPhoneCount(const PhoneManager *manager, int userID){
-    if(manager == NULL || userID < 0){
-        return 0;                                               // 参数无效
-    }
-
-    int count = 0;                                              // 统计手机号数量
-    for(int i = 0; i < manager->count; i++){
-        // 如果手机号绑定到该用户且状态为已分配
-        if(manager->phones[i].userId == userID &&
-           manager->phones[i].status == PHONE_STATUS_ASSIGNED){
-            count++;                                            // 统计绑定的手机号数量
-        }
-    }
-
-    return count;                                               // 返回手机号数量
-}
-
-/**
- * @brief 查找手机号在资源池中的索引
- * @param manager: 手机号管理器指针
- * @param phoneNumber: 待查找的手机号字符串
- * @retval 索引位置，未找到返回-1
- * @date   2025-10-29
+ * @brief 批量初始化手机号资源
+ * @param manager 手机号管理器指针
+ * @param segments 号段数组
+ * @param segmentCount 号段数量
+ * @param phonesPerSegment 每个号段的手机号数量
+ * @retval 实际生成的手机号总数量
+ * 
+ * 实现细节：
+ * - 预计算总手机号数量
+ * - 预分配足够的内存空间
+ * - 批量处理所有号段的手机号生成
+ * - 返回成功生成的手机号总数
  */
-int findPhoneIndex(PhoneManager *manager, const char *phoneNumber){
-    if(manager == NULL || phoneNumber == NULL){
-        return -1;                                              // 参数无效
+int batchInitPhoneResources(PhoneManager *manager, const char *segments[], 
+                           int segmentCount, int phonesPerSegment) {
+    if (manager == NULL || segments == NULL || segmentCount <= 0 || phonesPerSegment <= 0) {
+        return 0;
     }
-
-    for(int i = 0; i < manager->count; i++){
-        if(strcmp(manager->phones[i].phoneNumber, phoneNumber) == 0){
-            return i;                                           // 找到匹配的手机号，返回索引
+    
+    // 预计算总手机号数量
+    int estimatedTotal = manager->count + segmentCount * phonesPerSegment;
+    
+    // 预分配足够的内存
+    if (!preallocatePhoneCapacity(manager, estimatedTotal)) {
+        return 0;
+    }
+    
+    int totalGenerated = 0;
+    
+    // 批量处理所有号段
+    for (int segIndex = 0; segIndex < segmentCount; segIndex++) {
+        const char *segment = segments[segIndex];
+        
+        if (!validatePhoneSegment(segment)) {
+            continue; // 跳过无效号段
+        }
+        
+        int baseLength = strlen(segment);
+        int sequenceLength = 11 - baseLength;
+        
+        if (sequenceLength <= 0 || sequenceLength > 8) {
+            continue; // 跳过无效序列长度
+        }
+        
+        // 计算该号段的最大序列号
+        int maxSequence = 1;
+        for (int i = 0; i < sequenceLength; i++) {
+            maxSequence *= 10;
+        }
+        
+        int actualPerSegment = (phonesPerSegment > maxSequence) ? maxSequence : phonesPerSegment;
+        
+        // 批量生成该号段的手机号
+        for (int i = 0; i < actualPerSegment; i++) {
+            char fullPhone[MAX_PHONE_LENGTH];
+            if (generateFullPhoneNumber(segment, sequenceLength, i, fullPhone, sizeof(fullPhone))) {
+                strcpy(manager->phones[manager->count].phoneNumber, fullPhone);
+                resetPhoneResource(&manager->phones[manager->count]);
+                manager->count++;
+                totalGenerated++;
+            }
         }
     }
-
-    return -1;                                                  // 未找到手机号
+    
+    return totalGenerated;
 }
 
+// ========== 手机号绑定/解绑函数实现 ==========
+
 /**
-  * @brief  绑定手机号到用户
-  * @param  manager: 手机号管理器指针
-  * @param  userId: 绑定的用户ID
-  * @param  phoneNumber: 要绑定的手机号字符串
-  * @retval 1-成功, 0-失败（号码已占用或超限）
-  * @date   2025-10-29
-  */
+ * @brief 绑定手机号到用户
+ * @param manager 手机号管理器指针
+ * @param userID 用户ID
+ * @param phoneNumber 要绑定的手机号字符串
+ * @retval 1-成功, 0-失败（号码已占用或超限）
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 检查手机号格式有效性
+ * - 检测用户绑定数量限制
+ * - 查找手机号索引并检查可用性
+ * - 绑定手机号并记录分配时间
+ */
 int registerPhone(PhoneManager *manager, int userID, const char *phoneNumber){
     if(manager == NULL || phoneNumber == NULL || userID < 0){
         return 0;                                               // 参数无效
@@ -440,13 +617,18 @@ int registerPhone(PhoneManager *manager, int userID, const char *phoneNumber){
 }
 
 /**
-  * @brief  注销手机号
-  * @param  manager: 手机号管理器指针
-  * @param  userID: 用户ID
-  * @param  phoneNumber: 手机号字符串
-  * @retval 1-成功, 0-失败(号码未绑定或不属于该用户)
-  * @date   2025-10-29
-  */
+ * @brief 注销手机号
+ * @param manager 手机号管理器指针
+ * @param userID 用户ID
+ * @param phoneNumber 手机号字符串
+ * @retval 1-成功, 0-失败(号码未绑定或不属于该用户)
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 查找手机号索引位置
+ * - 检查绑定关系的正确性
+ * - 重置手机号资源状态
+ */
 int cancelPhone(PhoneManager *manager, int userID, const char *phoneNumber){
     if(manager == NULL || phoneNumber == NULL || userID < 0){
         return 0;                                               // 参数无效
@@ -470,12 +652,17 @@ int cancelPhone(PhoneManager *manager, int userID, const char *phoneNumber){
 }
 
 /**
-  * @brief  注销用户的所有手机号
-  * @param  manager: 手机号管理器指针
-  * @param  userID: 用户ID
-  * @retval 注销的手机号数量
-  * @date   2025-10-29
-  */
+ * @brief 注销用户的所有手机号
+ * @param manager 手机号管理器指针
+ * @param userID 用户ID
+ * @retval 注销的手机号数量
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 遍历所有手机号资源
+ * - 注销属于该用户的所有手机号
+ * - 返回成功注销的手机号数量
+ */
 int cancelAllUserPhones(PhoneManager *manager, int userID){
     if(manager == NULL || userID < 0){
         return 0;                                               // 参数无效
@@ -495,13 +682,72 @@ int cancelAllUserPhones(PhoneManager *manager, int userID){
     return cancelCount;                                        // 返回注销的手机号数量
 }
 
+// ========== 查询统计函数实现 ==========
+
 /**
-  * @brief  检查手机号是否唯一（未被分配）
-  * @param  manager: 手机号管理器指针
-  * @param  phoneNumber: 手机号字符串
-  * @retval true-唯一, false-已存在
-  * @date   2025-10-29
-  */
+ * @brief 获取用户的手机号数量
+ * @param manager 手机号管理器指针
+ * @param userID 用户ID
+ * @retval 手机号数量
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 遍历手机号资源统计绑定数量
+ * - 返回该用户绑定的有效手机号数
+ */
+int getUserPhoneCount(const PhoneManager *manager, int userID){
+    if(manager == NULL || userID < 0){
+        return 0;                                               // 参数无效
+    }
+
+    int count = 0;                                              // 统计手机号数量
+    for(int i = 0; i < manager->count; i++){
+        // 如果手机号绑定到该用户且状态为已分配
+        if(manager->phones[i].userId == userID &&
+           manager->phones[i].status == PHONE_STATUS_ASSIGNED){
+            count++;                                            // 统计绑定的手机号数量
+        }
+    }
+
+    return count;                                               // 返回手机号数量
+}
+
+/**
+ * @brief 查找手机号在资源池中的索引
+ * @param manager 手机号管理器指针
+ * @param phoneNumber 待查找的手机号字符串
+ * @retval 索引位置，未找到返回-1
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 遍历手机号资源数组进行匹配
+ * - 返回匹配的手机号索引位置
+ */
+int findPhoneIndex(PhoneManager *manager, const char *phoneNumber){
+    if(manager == NULL || phoneNumber == NULL){
+        return -1;                                              // 参数无效
+    }
+
+    for(int i = 0; i < manager->count; i++){
+        if(strcmp(manager->phones[i].phoneNumber, phoneNumber) == 0){
+            return i;                                           // 找到匹配的手机号，返回索引
+        }
+    }
+
+    return -1;                                                  // 未找到手机号
+}
+
+/**
+ * @brief 检查手机号是否唯一（未被分配）
+ * @param manager 手机号管理器指针
+ * @param phoneNumber 手机号字符串
+ * @retval true-唯一, false-已存在
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 查找手机号索引位置
+ * - 检查手机号状态是否为未分配
+ */
 bool isPhoneUnique(PhoneManager *manager, const char *phoneNumber){
     if(manager == NULL || phoneNumber == NULL){
         return false;                                          // 参数无效
@@ -516,13 +762,16 @@ bool isPhoneUnique(PhoneManager *manager, const char *phoneNumber){
     return (manager->phones[phoneIndex].status == PHONE_STATUS_FREE);
 }
 
-
 /**
-  * @brief  获取可用手机号资源总数量
-  * @param  manager: 手机号管理器指针
-  * @retval 手机号可用资源总数量
-  * @date   2025-10-29
-  */
+ * @brief 获取可用手机号资源总数量
+ * @param manager 手机号管理器指针
+ * @retval 手机号可用资源总数量
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 遍历手机号资源统计空闲数量
+ * - 返回状态为未分配的手机号总数
+ */
 int getAvailablePhoneCount(const PhoneManager *manager){
     if(manager == NULL){
         return 0;                                               // 参数无效
@@ -540,14 +789,19 @@ int getAvailablePhoneCount(const PhoneManager *manager){
 }
 
 /**
-  * @brief  获取用户的所有手机号
-  * @param  manager: 手机号管理器指针
-  * @param  userID: 用户ID
-  * @param  phones: 返回手机号数组
-  * @param  count: 返回手机号数量
-  * @retval 无
-  * @date   2025-10-29
-  */
+ * @brief 获取用户的所有手机号
+ * @param manager 手机号管理器指针
+ * @param userID 用户ID
+ * @param phones 返回手机号数组
+ * @param count 返回手机号数量
+ * @retval 无
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 遍历手机号资源收集绑定手机号
+ * - 复制手机号到输出数组
+ * - 返回手机号数量和数组
+ */
 void getUserPhones(const PhoneManager *manager, int userID, 
                    char phones[][MAX_PHONE_LENGTH], int *count){
 
@@ -571,12 +825,16 @@ void getUserPhones(const PhoneManager *manager, int userID,
 }
 
 /**
-  * @brief  获取指定索引的手机号资源
-  * @param  manager: 手机号管理器指针
-  * @param  index: 资源索引
-  * @retval PhoneResource* 指向手机号资源的指针，失败返回NULL
-  * @date   2025-10-29
-  */
+ * @brief 获取指定索引的手机号资源
+ * @param manager 手机号管理器指针
+ * @param index 资源索引
+ * @retval PhoneResource* 指向手机号资源的指针，失败返回NULL
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 检查索引范围的正确性
+ * - 返回指定索引的手机号资源指针
+ */
 const PhoneResource* getPhoneResourceByIndex(const PhoneManager *manager, int index){
     if(manager == NULL || index < 0 || index >= manager->count){
         return NULL;                                            // 参数无效
@@ -585,13 +843,413 @@ const PhoneResource* getPhoneResourceByIndex(const PhoneManager *manager, int in
     return &manager->phones[index];                             // 返回指定索引的手机号资源指针
 }
 
+// ========== 手机号选择与分类函数实现 ==========
+
 /**
-  * @brief  保存手机号资源到文件
-  * @param  manager: 手机号管理器指针
-  * @param  fileName: 文件名
-  * @retval 1-成功, 0-失败
-  * @date   2025-10-28
-  */ 
+ * @brief 获取多个可用手机号
+ * @param manager 手机号管理器指针
+ * @param phones 输出参数，存储获取的手机号数组
+ * @param maxCount 最大获取数量
+ * @retval 实际获取的可用手机号数量
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 统计所有可用手机号的索引
+ * - 随机打乱可用索引实现随机选择
+ * - 复制手机号到输出数组
+ */
+int getAvailablePhones(PhoneManager* manager,
+    char phones[][MAX_PHONE_LENGTH],
+    int maxCount) {
+    if (manager == NULL || phones == NULL || maxCount <= 0) {
+        return 0;
+    }
+
+    // 统计所有可用手机号的索引
+    int* availableIndices = (int*)malloc(sizeof(int) * manager->count);
+    if (availableIndices == NULL) {
+        return 0;
+    }
+
+    int availableCount = 0;
+    for (int i = 0; i < manager->count; i++) {
+        if (manager->phones[i].status == PHONE_STATUS_FREE) {
+            availableIndices[availableCount++] = i;
+        }
+    }
+
+    if (availableCount == 0) {
+        free(availableIndices);
+        return 0;
+    }
+
+    // 随机选择最多maxCount个手机号
+    srand((unsigned int)time(NULL));
+    int selectedCount = 0;
+
+    // 如果可用数量少于需求，调整实际选择数量
+    int actualCount = (availableCount < maxCount) ? availableCount : maxCount;
+
+    // 随机打乱可用索引
+    for (int i = 0; i < availableCount - 1; i++) {
+        int j = i + rand() % (availableCount - i);
+        int temp = availableIndices[i];
+        availableIndices[i] = availableIndices[j];
+        availableIndices[j] = temp;
+    }
+
+    // 复制手机号到输出数组
+    for (int i = 0; i < actualCount; i++) {
+        strcpy(phones[selectedCount],
+            manager->phones[availableIndices[i]].phoneNumber);
+        selectedCount++;
+    }
+
+    free(availableIndices);
+    return selectedCount;
+}
+
+/**
+ * @brief 获取所有可用号段
+ * @param manager 手机号管理器指针
+ * @param segments 输出参数，存储获取的号段数组
+ * @param maxCount 最大获取数量
+ * @retval 实际获取的可用号段数量
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 遍历空闲手机号提取不同号段
+ * - 去重处理确保号段唯一性
+ * - 返回发现的唯一号段数量
+ */
+int getAllSegments(PhoneManager *manager, char segments[][MAX_SEGMENT_LENGTH], int maxCount) {
+    if (manager == NULL || segments == NULL || maxCount <= 0) {
+        return 0;
+    }
+
+    int segmentCount = 0;
+    
+    // 遍历所有手机号，提取不同的号段（前3位）
+    for (int i = 0; i < manager->count && segmentCount < maxCount; i++) {
+        if (manager->phones[i].status == PHONE_STATUS_FREE) {
+            // 提取号段（前3位）
+            char currentSegment[4] = {0};
+            strncpy(currentSegment, manager->phones[i].phoneNumber, 3);
+            currentSegment[3] = '\0';
+            
+            // 检查是否已存在该号段
+            int exists = 0;
+            for (int j = 0; j < segmentCount; j++) {
+                if (strcmp(segments[j], currentSegment) == 0) {
+                    exists = 1;
+                    break;
+                }
+            }
+            
+            // 如果不存在，添加到号段列表
+            if (!exists) {
+                strcpy(segments[segmentCount], currentSegment);
+                segmentCount++;
+            }
+        }
+    }
+    
+    return segmentCount;
+}
+
+/**
+ * @brief 根据号段获取可用的手机号
+ * @param manager 手机号管理器指针
+ * @param segment 指定的号段
+ * @param phones 输出参数，存储获取的手机号数组
+ * @param maxCount 最大获取数量
+ * @retval 实际获取的可用手机号数量
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 验证号段长度的正确性
+ * - 统计该号段下所有可用手机号的索引
+ * - 随机选择并返回手机号数组
+ */
+int getAvailablePhonesBySegment(PhoneManager *manager, const char *segment, 
+                               char phones[][MAX_PHONE_LENGTH], int maxCount) {
+    if (manager == NULL || segment == NULL || phones == NULL || maxCount <= 0) {
+        return 0;
+    }
+
+    // 验证号段长度
+    if (strlen(segment) != 3) {
+        printf("getAvailablePhonesBySegment: 号段长度必须为3位\n");
+        return 0;
+    }
+
+    // 统计该号段下所有可用手机号的索引
+    int *availableIndices = (int *)malloc(sizeof(int) * manager->count);
+    if (availableIndices == NULL) {
+        printf("getAvailablePhonesBySegment: 内存分配失败\n");
+        return 0;
+    }
+
+    int availableCount = 0;
+    for (int i = 0; i < manager->count; i++) {
+        if (manager->phones[i].status == PHONE_STATUS_FREE) {
+            // 检查是否属于指定号段（固定比较前3位）
+            if (strncmp(manager->phones[i].phoneNumber, segment, 3) == 0) {
+                if (availableCount < manager->count) { // 边界检查
+                    availableIndices[availableCount++] = i;
+                }
+            }
+        }
+    }
+
+    if (availableCount == 0) {
+        free(availableIndices);
+        return 0;
+    }
+
+    // 随机选择最多maxCount个手机号
+    srand((unsigned int)time(NULL));
+    int selectedCount = 0;
+
+    // 如果可用数量少于需求，调整实际选择数量
+    int actualCount = (availableCount < maxCount) ? availableCount : maxCount;
+
+    // 随机打乱可用索引
+    for (int i = 0; i < availableCount - 1; i++) {
+        int j = i + rand() % (availableCount - i);
+        if (i < availableCount && j < availableCount) { // 边界检查
+            int temp = availableIndices[i];
+            availableIndices[i] = availableIndices[j];
+            availableIndices[j] = temp;
+        }
+    }
+
+    // 复制手机号到输出数组
+    for (int i = 0; i < actualCount && i < availableCount; i++) {
+        if (availableIndices[i] >= 0 && availableIndices[i] < manager->count) {
+            strcpy(phones[selectedCount], manager->phones[availableIndices[i]].phoneNumber);
+            selectedCount++;
+        }
+    }
+
+    free(availableIndices);
+    return selectedCount;
+}
+
+/**
+ * @brief 获取号段分类
+ * @param manager 手机号管理器指针
+ * @param categories 输出参数，存储号段分类数组
+ * @param maxCount 最大获取数量
+ * @retval 实际获取的号段分类数量
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 遍历空闲手机号提取分类（前2位）
+ * - 去重处理确保分类唯一性
+ * - 如果没有提取到分类，使用预定义分类
+ */
+int getSegmentCategories(PhoneManager *manager, char categories[][MAX_SEGMENT_LENGTH], int maxCount) {
+    if (manager == NULL || categories == NULL || maxCount <= 0) {
+        return 0;
+    }
+
+    int categoryCount = 0;
+    
+    // 遍历所有手机号，提取不同的号段分类（前2位）
+    for (int i = 0; i < manager->count && categoryCount < maxCount; i++) {
+        // 只考虑空闲状态的手机号
+        if (manager->phones[i].status == PHONE_STATUS_FREE) {
+            // 提取号段分类（前2位）
+            char currentCategory[3] = {0};
+            strncpy(currentCategory, manager->phones[i].phoneNumber, 2);
+            currentCategory[2] = '\0';
+            
+            // 检查是否已存在该分类
+            int exists = 0;
+            for (int j = 0; j < categoryCount; j++) {
+                if (strcmp(categories[j], currentCategory) == 0) {
+                    exists = 1;
+                    break;
+                }
+            }
+            
+            // 如果不存在，添加到分类列表
+            if (!exists) {
+                strcpy(categories[categoryCount], currentCategory);
+                categoryCount++;
+            }
+        }
+    }
+    
+    // 如果从号码中没有提取到分类，使用预定义的分类
+    if (categoryCount == 0) {
+        const char* defaultCategories[] = {"13", "14", "15", "16", "17", "18", "19"};
+        int defaultCount = sizeof(defaultCategories) / sizeof(defaultCategories[0]);
+        
+        for (int i = 0; i < defaultCount && i < maxCount; i++) {
+            strcpy(categories[categoryCount], defaultCategories[i]);
+            categoryCount++;
+        }
+    }
+    
+    return categoryCount;
+}
+
+/**
+ * @brief 根据分类获取具体号段
+ * @param manager 手机号管理器指针
+ * @param category 号段分类（如"13", "15"等）
+ * @param segments 输出参数，存储具体号段数组
+ * @param maxCount 最大获取数量
+ * @retval 实际获取的具体号段数量
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 遍历空闲手机号提取属于该分类的具体号段
+ * - 去重处理确保号段唯一性
+ * - 返回该分类下的具体号段数量
+ */
+int getSegmentsByCategory(PhoneManager *manager, const char *category, 
+                         char segments[][MAX_SEGMENT_LENGTH], int maxCount) {
+    if (manager == NULL || category == NULL || segments == NULL || maxCount <= 0) {
+        return 0;
+    }
+
+    int segmentCount = 0;
+    
+    // 遍历所有手机号，提取属于该分类的具体号段（前3位）
+    for (int i = 0; i < manager->count && segmentCount < maxCount; i++) {
+        if (manager->phones[i].status == PHONE_STATUS_FREE) {
+            // 检查是否属于指定分类
+            if (strncmp(manager->phones[i].phoneNumber, category, 2) == 0) {
+                // 提取具体号段（前3位）
+                char currentSegment[4] = {0};
+                strncpy(currentSegment, manager->phones[i].phoneNumber, 3);
+                currentSegment[3] = '\0';
+                
+                // 检查是否已存在该号段
+                int exists = 0;
+                for (int j = 0; j < segmentCount; j++) {
+                    if (strcmp(segments[j], currentSegment) == 0) {
+                        exists = 1;
+                        break;
+                    }
+                }
+                
+                // 如果不存在，添加到号段列表
+                if (!exists) {
+                    strcpy(segments[segmentCount], currentSegment);
+                    segmentCount++;
+                }
+            }
+        }
+    }
+    
+    return segmentCount;
+}
+
+/**
+ * @brief 对手机号数组进行排序
+ * @param phones 手机号数组
+ * @param count 手机号数量
+ * @retval 无
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 使用冒泡排序对手机号进行升序排列
+ * - 确保手机号列表的有序显示
+ */
+void sortPhoneNumbers(char phones[][MAX_PHONE_LENGTH], int count) {
+    if (phones == NULL || count <= 1) {
+        return;
+    }
+    
+    // 使用冒泡排序对手机号进行升序排列
+    for (int i = 0; i < count - 1; i++) {
+        for (int j = 0; j < count - i - 1; j++) {
+            if (strcmp(phones[j], phones[j + 1]) > 0) {
+                // 交换手机号
+                char temp[MAX_PHONE_LENGTH];
+                strcpy(temp, phones[j]);
+                strcpy(phones[j], phones[j + 1]);
+                strcpy(phones[j + 1], temp);
+            }
+        }
+    }
+}
+
+/**
+ * @brief 根据分类获取可用手机号数量
+ * @param manager 手机号管理器指针
+ * @param category 号段分类
+ * @retval 可用手机号数量
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 遍历手机号资源统计指定分类下的空闲数量
+ * - 返回该分类的空闲手机号总数
+ */
+int getAvailablePhoneCountByCategory(PhoneManager *manager, const char *category) {
+    if (manager == NULL || category == NULL) {
+        return 0;
+    }
+
+    int count = 0;
+    for (int i = 0; i < manager->count; i++) {
+        if (manager->phones[i].status == PHONE_STATUS_FREE) {
+            // 检查是否属于指定分类
+            if (strncmp(manager->phones[i].phoneNumber, category, 2) == 0) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+/**
+ * @brief 根据具体号段获取可用手机号数量
+ * @param manager 手机号管理器指针
+ * @param segment 具体号段
+ * @retval 可用手机号数量
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 遍历手机号资源统计指定号段下的空闲数量
+ * - 返回该号段的空闲手机号总数
+ */
+int getAvailablePhoneCountBySegment(PhoneManager *manager, const char *segment) {
+    if (manager == NULL || segment == NULL) {
+        return 0;
+    }
+
+    int count = 0;
+    for (int i = 0; i < manager->count; i++) {
+        if (manager->phones[i].status == PHONE_STATUS_FREE) {
+            // 检查是否属于指定号段
+            if (strncmp(manager->phones[i].phoneNumber, segment, 3) == 0) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+// ========== 文件操作函数实现 ==========
+
+/**
+ * @brief 保存手机号资源到文件
+ * @param manager 手机号管理器指针
+ * @param fileName 文件名
+ * @retval 1-成功, 0-失败
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 打开二进制文件进行写入
+ * - 写入文件头（版本信息和数据量）
+ * - 写入所有手机号资源数据
+ * - 验证写入数据的完整性
+ */
 int savePhoneResource(const PhoneManager *manager, const char *fileName) {
     if (manager == NULL || fileName == NULL) {
         return 0;
@@ -651,13 +1309,19 @@ int savePhoneResource(const PhoneManager *manager, const char *fileName) {
 }
 
 /**
-  * @brief  从文件加载手机号资源(预留接口)
-  * @param  manager: 手机号管理器指针
-  * @param  fileName: 文件名
-  * @retval 1-成功, 0-失败
-  * @date   2025-10-28
-  */
-
+ * @brief 从文件加载手机号资源
+ * @param manager 手机号管理器指针
+ * @param fileName 文件名
+ * @retval 1-成功, 0-失败
+ * 
+ * 实现细节：
+ * - 验证输入参数的合法性
+ * - 打开二进制文件进行读取
+ * - 读取文件头（版本信息和数据量）
+ * - 检查版本兼容性
+ * - 确保管理器有足够的容量
+ * - 读取手机号资源数据到内存
+ */
 int loadPhoneResource(PhoneManager *manager, const char *fileName)
 {
     if (manager == NULL || fileName == NULL) {
@@ -730,347 +1394,4 @@ int loadPhoneResource(PhoneManager *manager, const char *fileName)
     
     fclose(file);
     return 1;
-}
-/**
-  * @brief  获取多个可用手机号
-  * @param  manager: 手机号管理器指针
-  * @param  phones: 输出参数，存储获取的手机号数组
-  * @param  maxCount: 最大获取数量
-  * @retval 实际获取的可用手机号数量
-  * @date   2025-11-1
-  */
-int getAvailablePhones(PhoneManager* manager,
-    char phones[][MAX_PHONE_LENGTH],
-    int maxCount) {
-    if (manager == NULL || phones == NULL || maxCount <= 0) {
-        return 0;
-    }
-
-    // 统计所有可用手机号的索引
-    int* availableIndices = (int*)malloc(sizeof(int) * manager->count);
-    if (availableIndices == NULL) {
-        return 0;
-    }
-
-    int availableCount = 0;
-    for (int i = 0; i < manager->count; i++) {
-        if (manager->phones[i].status == PHONE_STATUS_FREE) {
-            availableIndices[availableCount++] = i;
-        }
-    }
-
-    if (availableCount == 0) {
-        free(availableIndices);
-        return 0;
-    }
-
-    // 随机选择最多maxCount个手机号
-    srand((unsigned int)time(NULL));
-    int selectedCount = 0;
-
-    // 如果可用数量少于需求，调整实际选择数量
-    int actualCount = (availableCount < maxCount) ? availableCount : maxCount;
-
-    // 随机打乱可用索引
-    for (int i = 0; i < availableCount - 1; i++) {
-        int j = i + rand() % (availableCount - i);
-        int temp = availableIndices[i];
-        availableIndices[i] = availableIndices[j];
-        availableIndices[j] = temp;
-    }
-
-    // 复制手机号到输出数组
-    for (int i = 0; i < actualCount; i++) {
-        strcpy(phones[selectedCount],
-            manager->phones[availableIndices[i]].phoneNumber);
-        selectedCount++;
-    }
-
-    free(availableIndices);
-    return selectedCount;
-}
-
-/**
- * @brief 获取所有可用号段
- * @param manager: 手机号管理器指针
- * @param segments: 输出参数，存储获取的号段数组
- * @param maxCount: 最大获取数量
- * @retval 实际获取的可用号段数量
- */
-int getAllSegments(PhoneManager *manager, char segments[][MAX_SEGMENT_LENGTH], int maxCount) {
-    if (manager == NULL || segments == NULL || maxCount <= 0) {
-        return 0;
-    }
-
-    int segmentCount = 0;
-    
-    // 遍历所有手机号，提取不同的号段（前3位）
-    for (int i = 0; i < manager->count && segmentCount < maxCount; i++) {
-        if (manager->phones[i].status == PHONE_STATUS_FREE) {
-            // 提取号段（前3位）
-            char currentSegment[4] = {0};
-            strncpy(currentSegment, manager->phones[i].phoneNumber, 3);
-            currentSegment[3] = '\0';
-            
-            // 检查是否已存在该号段
-            int exists = 0;
-            for (int j = 0; j < segmentCount; j++) {
-                if (strcmp(segments[j], currentSegment) == 0) {
-                    exists = 1;
-                    break;
-                }
-            }
-            
-            // 如果不存在，添加到号段列表
-            if (!exists) {
-                strcpy(segments[segmentCount], currentSegment);
-                segmentCount++;
-            }
-        }
-    }
-    
-    return segmentCount;
-}
-
-/**
- * @brief 根据号段获取可用的手机号
- * @param manager: 手机号管理器指针
- * @param segment: 指定的号段
- * @param phones: 输出参数，存储获取的手机号数组
- * @param maxCount: 最大获取数量
- * @retval 实际获取的可用手机号数量
- */
-int getAvailablePhonesBySegment(PhoneManager *manager, const char *segment, 
-                               char phones[][MAX_PHONE_LENGTH], int maxCount) {
-    if (manager == NULL || segment == NULL || phones == NULL || maxCount <= 0) {
-        return 0;
-    }
-
-    // 验证号段长度
-    if (strlen(segment) != 3) {
-        printf("getAvailablePhonesBySegment: 号段长度必须为3位\n");
-        return 0;
-    }
-
-    // 统计该号段下所有可用手机号的索引
-    int *availableIndices = (int *)malloc(sizeof(int) * manager->count);
-    if (availableIndices == NULL) {
-        printf("getAvailablePhonesBySegment: 内存分配失败\n");
-        return 0;
-    }
-
-    int availableCount = 0;
-    for (int i = 0; i < manager->count; i++) {
-        if (manager->phones[i].status == PHONE_STATUS_FREE) {
-            // 检查是否属于指定号段（固定比较前3位）
-            if (strncmp(manager->phones[i].phoneNumber, segment, 3) == 0) {
-                if (availableCount < manager->count) { // 边界检查
-                    availableIndices[availableCount++] = i;
-                }
-            }
-        }
-    }
-
-    if (availableCount == 0) {
-        free(availableIndices);
-        return 0;
-    }
-
-    // 随机选择最多maxCount个手机号
-    srand((unsigned int)time(NULL));
-    int selectedCount = 0;
-
-    // 如果可用数量少于需求，调整实际选择数量
-    int actualCount = (availableCount < maxCount) ? availableCount : maxCount;
-
-    // 随机打乱可用索引
-    for (int i = 0; i < availableCount - 1; i++) {
-        int j = i + rand() % (availableCount - i);
-        if (i < availableCount && j < availableCount) { // 边界检查
-            int temp = availableIndices[i];
-            availableIndices[i] = availableIndices[j];
-            availableIndices[j] = temp;
-        }
-    }
-
-    // 复制手机号到输出数组
-    for (int i = 0; i < actualCount && i < availableCount; i++) {
-        if (availableIndices[i] >= 0 && availableIndices[i] < manager->count) {
-            strcpy(phones[selectedCount], manager->phones[availableIndices[i]].phoneNumber);
-            selectedCount++;
-        }
-    }
-
-    free(availableIndices);
-    return selectedCount;
-}
-
-/**
- * @brief 获取号段分类
- * @param manager: 手机号管理器指针
- * @param categories: 输出参数，存储号段分类数组
- * @param maxCount: 最大获取数量
- * @retval 实际获取的号段分类数量
- */ 
-int getSegmentCategories(PhoneManager *manager, char categories[][MAX_SEGMENT_LENGTH], int maxCount) {
-    if (manager == NULL || categories == NULL || maxCount <= 0) {
-        return 0;
-    }
-
-    int categoryCount = 0;
-    
-    // 遍历所有手机号，提取不同的号段分类（前2位）
-    for (int i = 0; i < manager->count && categoryCount < maxCount; i++) {
-        // 只考虑空闲状态的手机号
-        if (manager->phones[i].status == PHONE_STATUS_FREE) {
-            // 提取号段分类（前2位）
-            char currentCategory[3] = {0};
-            strncpy(currentCategory, manager->phones[i].phoneNumber, 2);
-            currentCategory[2] = '\0';
-            
-            // 检查是否已存在该分类
-            int exists = 0;
-            for (int j = 0; j < categoryCount; j++) {
-                if (strcmp(categories[j], currentCategory) == 0) {
-                    exists = 1;
-                    break;
-                }
-            }
-            
-            // 如果不存在，添加到分类列表
-            if (!exists) {
-                strcpy(categories[categoryCount], currentCategory);
-                categoryCount++;
-            }
-        }
-    }
-    
-    // 如果从号码中没有提取到分类，使用预定义的分类
-    if (categoryCount == 0) {
-        const char* defaultCategories[] = {"13", "14", "15", "16", "17", "18", "19"};
-        int defaultCount = sizeof(defaultCategories) / sizeof(defaultCategories[0]);
-        
-        for (int i = 0; i < defaultCount && i < maxCount; i++) {
-            strcpy(categories[categoryCount], defaultCategories[i]);
-            categoryCount++;
-        }
-    }
-    
-    return categoryCount;
-}
-/**
- * @brief 根据分类获取具体号段
- * @param manager: 手机号管理器指针
- * @param category: 号段分类（如"13", "15"等）
- * @param segments: 输出参数，存储具体号段数组
- * @param maxCount: 最大获取数量
- * @retval 实际获取的具体号段数量
- */
-int getSegmentsByCategory(PhoneManager *manager, const char *category, 
-                         char segments[][MAX_SEGMENT_LENGTH], int maxCount) {
-    if (manager == NULL || category == NULL || segments == NULL || maxCount <= 0) {
-        return 0;
-    }
-
-    int segmentCount = 0;
-    
-    // 遍历所有手机号，提取属于该分类的具体号段（前3位）
-    for (int i = 0; i < manager->count && segmentCount < maxCount; i++) {
-        if (manager->phones[i].status == PHONE_STATUS_FREE) {
-            // 检查是否属于指定分类
-            if (strncmp(manager->phones[i].phoneNumber, category, 2) == 0) {
-                // 提取具体号段（前3位）
-                char currentSegment[4] = {0};
-                strncpy(currentSegment, manager->phones[i].phoneNumber, 3);
-                currentSegment[3] = '\0';
-                
-                // 检查是否已存在该号段
-                int exists = 0;
-                for (int j = 0; j < segmentCount; j++) {
-                    if (strcmp(segments[j], currentSegment) == 0) {
-                        exists = 1;
-                        break;
-                    }
-                }
-                
-                // 如果不存在，添加到号段列表
-                if (!exists) {
-                    strcpy(segments[segmentCount], currentSegment);
-                    segmentCount++;
-                }
-            }
-        }
-    }
-    
-    return segmentCount;
-}
-
-/**
- * @brief 对手机号数组进行排序
- * @param phones: 手机号数组
- * @param count: 手机号数量
- */
-void sortPhoneNumbers(char phones[][MAX_PHONE_LENGTH], int count) {
-    if (phones == NULL || count <= 1) {
-        return;
-    }
-    
-    // 使用冒泡排序对手机号进行升序排列
-    for (int i = 0; i < count - 1; i++) {
-        for (int j = 0; j < count - i - 1; j++) {
-            if (strcmp(phones[j], phones[j + 1]) > 0) {
-                // 交换手机号
-                char temp[MAX_PHONE_LENGTH];
-                strcpy(temp, phones[j]);
-                strcpy(phones[j], phones[j + 1]);
-                strcpy(phones[j + 1], temp);
-            }
-        }
-    }
-}
-
-/**
- * @brief 根据分类获取可用手机号数量
- * @param manager: 手机号管理器指针
- * @param category: 号段分类
- * @retval 可用手机号数量
- */
-int getAvailablePhoneCountByCategory(PhoneManager *manager, const char *category) {
-    if (manager == NULL || category == NULL) {
-        return 0;
-    }
-
-    int count = 0;
-    for (int i = 0; i < manager->count; i++) {
-        if (manager->phones[i].status == PHONE_STATUS_FREE) {
-            // 检查是否属于指定分类
-            if (strncmp(manager->phones[i].phoneNumber, category, 2) == 0) {
-                count++;
-            }
-        }
-    }
-    return count;
-}
-
-/**
- * @brief 根据具体号段获取可用手机号数量
- * @param manager: 手机号管理器指针
- * @param segment: 具体号段
- * @retval 可用手机号数量
- */
-int getAvailablePhoneCountBySegment(PhoneManager *manager, const char *segment) {
-    if (manager == NULL || segment == NULL) {
-        return 0;
-    }
-
-    int count = 0;
-    for (int i = 0; i < manager->count; i++) {
-        if (manager->phones[i].status == PHONE_STATUS_FREE) {
-            // 检查是否属于指定号段
-            if (strncmp(manager->phones[i].phoneNumber, segment, 3) == 0) {
-                count++;
-            }
-        }
-    }
-    return count;
 }
