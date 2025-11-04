@@ -1,18 +1,21 @@
 /*
  * 文件名称：utils.c
  * 文件路径：.\MobileBusinessHallSystem\utils.c
- * 功能描述：提供身份证号码验证相关工具函数，含格式校验、出生日期验证、校验码验证等。
- * 作    者：杜家宝（邮箱：B24050011@njupt.edu.cn）
+ * 功能描述：工具函数模块实现文件 - 实现身份证号码验证相关工具函数
+ *          含格式校验、出生日期验证、校验码验证、信息提取等完整功能
+ * 作    者：
  * 创建日期：2025-10-28
  * 版本信息：v1.2（新增出生日期合法性校验，修复NULL指针崩溃问题）
  * 版权声明：© 2025 杜家宝，保留所有权利
  * 
  * 实现说明：
  * 1. 校验码验证基于GB 11643-1999标准，采用加权因子[7,9,10,5,8,4,2,1,6,3,7,9,10,5,8,4,2]计算；
- * 2. 出生日期验证依赖 getCurrentDate 函数获取系统时间，通过 getDaysInMonth 处理闰年和月份天数。
+ * 2. 出生日期验证依赖 getCurrentDate 函数获取系统时间，通过 getDaysInMonth 处理闰年和月份天数；
+ * 3. 提供完整的身份证号码生命周期验证；
+ * 4. 支持多种信息提取和计算功能。
+ * 
  * 依赖说明：
  * - 标准库：stdio.h、stdlib.h、stdbool.h、string.h、ctype.h、time.h
- * - 自定义函数：getDaysInMonth（月份天数计算）、extractBirthDate（出生日期提取）
  * 
  * 修改记录：
  * 2025-10-28  新增文件，实现基础校验功能（v1.0）
@@ -28,13 +31,85 @@
 #include <ctype.h>
 #include <time.h>
 
+// ========== 内部辅助函数声明 ==========
+
 /**
-  * @brief  验证身份证号码长度和字符组成
-  * @param  idCard: 待验证的身份证号码字符串
-  * @retval true-验证通过, false-验证失败
-  * @author 杜家宝
-  * @date   2025-10-28
-  */
+ * @brief 验证身份证号码长度和字符组成
+ * @param idCard 待验证的身份证号码字符串
+ * @retval true-验证通过, false-验证失败
+ */
+static bool validateIDCardLengthAndChars(const char *idCard);
+
+/**
+ * @brief 身份证校验码验证
+ * @param idCard 待验证的身份证号码字符串
+ * @retval true-校验码正确, false-校验码错误
+ */
+static bool validateIDCardCheckDigit(const char *idCard);
+
+/**
+ * @brief 获取当前系统年月日
+ * @param currentYear 返回当前年份的指针
+ * @param currentMonth 返回当前月份的指针
+ * @param currentDay 返回当前日期的指针
+ * @retval true-获取成功, false-获取失败
+ */
+static bool getCurrentDate(int* currentYear, int* currentMonth, int* currentDay);
+
+/**
+ * @brief 判断是否为闰年
+ * @param year 待判断的年份
+ * @retval true-闰年, false-平年
+ */
+static bool isLeapYear(int year);
+
+/**
+ * @brief 获取指定月份的天数
+ * @param year 年份
+ * @param month 月份
+ * @retval 天数(无效月份返回-1)
+ */
+static int getDaysInMonth(int year, int month);
+
+/**
+ * @brief 从身份证提取出生日期字符串
+ * @param idCard 身份证号码字符串
+ * @param birthDate 返回出生日期的缓冲区(YYYYMMDD格式)
+ * @param birthDateSize 缓冲区大小
+ * @retval 无
+ */
+static void getBirthDateFromIDCard(const char *idCard, char *birthDate, size_t birthDateSize);
+
+/**
+ * @brief 从身份证提取出生年月日
+ * @param idCard 身份证号码字符串
+ * @param birthYear 返回出生年份的指针
+ * @param birthMonth 返回出生月份的指针
+ * @param birthDay 返回出生日期的指针
+ * @retval true-提取成功, false-提取失败
+ */
+static bool extractBirthDate(const char *idCard, int *birthYear, int *birthMonth, int *birthDay);
+
+/**
+ * @brief 验证身份证出生日期有效性
+ * @param IDCard 身份证号码字符串
+ * @retval true-日期有效, false-日期无效
+ */
+static bool validateIDCardBirthDate(const char *IDCard);
+
+// ========== 身份证验证函数实现 ==========
+
+/**
+ * @brief 验证身份证号码长度和字符组成
+ * @param idCard 待验证的身份证号码字符串
+ * @retval true-验证通过, false-验证失败
+ * 
+ * 实现细节：
+ * - 检查身份证号码是否为18位长度
+ * - 验证前17位是否全部为数字
+ * - 验证最后一位是否为数字或字母X（大小写）
+ * - 确保身份证号码的基本格式正确性
+ */
 bool validateIDCardLengthAndChars(const char *idCard)
 {
     if (idCard == NULL)
@@ -63,11 +138,15 @@ bool validateIDCardLengthAndChars(const char *idCard)
 }
 
 /**
- * @brief  身份证校验码验证
- * @param  idCard: 待验证的身份证号码字符串
+ * @brief 身份证校验码验证
+ * @param idCard 待验证的身份证号码字符串
  * @retval true-校验码正确, false-校验码错误
- * @author 杜家宝
- * @date   2025-10-28
+ * 
+ * 实现细节：
+ * - 使用GB 11643-1999标准加权因子
+ * - 计算前17位的加权和
+ * - 根据模11结果获取预期校验码
+ * - 比较预期校验码与实际校验码
  */
 bool validateIDCardCheckDigit(const char *idCard)
 {
@@ -93,17 +172,18 @@ bool validateIDCardCheckDigit(const char *idCard)
 }
 
 /**
- * @brief  获取当前系统年月日
- * @param  currentYear: 返回当前年份的指针
- * @param  currentMonth: 返回当前月份的指针
- * @param  currentDay: 返回当前日期的指针
+ * @brief 获取当前系统年月日
+ * @param currentYear 返回当前年份的指针
+ * @param currentMonth 返回当前月份的指针
+ * @param currentDay 返回当前日期的指针
  * @retval true-获取成功, false-获取失败
- * @author 杜家宝
- * @date   2025-10-28
+ * 
+ * 实现细节：
+ * - 获取当前系统时间戳
+ * - 转换为本地时间结构体
+ * - 提取年份、月份和日期信息
+ * - 处理时间转换的异常情况
  */
-#include <time.h>  // 包含时间相关函数声明
-#include <stdbool.h>  // 包含bool类型定义
-
 bool getCurrentDate(int* currentYear, int* currentMonth, int* currentDay)
 {
    // 检查输入参数合法性（避免NULL指针）
@@ -134,11 +214,14 @@ bool getCurrentDate(int* currentYear, int* currentMonth, int* currentDay)
 }
 
 /**
- * @brief  判断是否为闰年
- * @param  year: 待判断的年份
+ * @brief 判断是否为闰年
+ * @param year 待判断的年份
  * @retval true-闰年, false-平年
- * @author 杜家宝
- * @date   2025-10-28
+ * 
+ * 实现细节：
+ * - 使用标准的闰年判断规则
+ * - 能被4整除但不能被100整除，或者能被400整除
+ * - 返回年份的闰年状态
  */
 bool isLeapYear(int year)
 {
@@ -146,12 +229,15 @@ bool isLeapYear(int year)
 }
 
 /**
- * @brief  获取指定月份的天数
- * @param  year: 年份
- * @param  month: 月份
+ * @brief 获取指定月份的天数
+ * @param year 年份
+ * @param month 月份
  * @retval 天数(无效月份返回-1)
- * @author 杜家宝
- * @date   2025-10-28
+ * 
+ * 实现细节：
+ * - 处理各个月份的天数差异
+ * - 特别处理2月份的闰年情况
+ * - 返回指定年份月份的天数
  */
 int getDaysInMonth(int year, int month)
 {
@@ -169,12 +255,17 @@ int getDaysInMonth(int year, int month)
 }
 
 /**
- * @brief  从身份证提取出生日期字符串
- * @param  idCard: 身份证号码字符串
- * @param  birthDate: 返回出生日期的缓冲区(YYYYMMDD格式)
+ * @brief 从身份证提取出生日期字符串
+ * @param idCard 身份证号码字符串
+ * @param birthDate 返回出生日期的缓冲区(YYYYMMDD格式)
+ * @param birthDateSize 缓冲区大小
  * @retval 无
- * @author 杜家宝
- * @date   2025-10-28
+ * 
+ * 实现细节：
+ * - 从身份证第7-14位提取出生日期
+ * - 确保缓冲区足够大（至少9字节）
+ * - 验证身份证号码长度
+ * - 安全地复制日期字符串
  */
 void getBirthDateFromIDCard(const char *idCard, char *birthDate, size_t birthDateSize)
 {
@@ -197,15 +288,20 @@ void getBirthDateFromIDCard(const char *idCard, char *birthDate, size_t birthDat
    // 确保字符串以'\0'结尾（strncpy_s在成功时会自动添加，但显式处理更安全）
    birthDate[8] = '\0';
 }
+
 /**
- * @brief  从身份证提取出生年月日
- * @param  idCard: 身份证号码字符串
- * @param  birthYear: 返回出生年份的指针
- * @param  birthMonth: 返回出生月份的指针
- * @param  birthDay: 返回出生日期的指针
+ * @brief 从身份证提取出生年月日
+ * @param idCard 身份证号码字符串
+ * @param birthYear 返回出生年份的指针
+ * @param birthMonth 返回出生月份的指针
+ * @param birthDay 返回出生日期的指针
  * @retval true-提取成功, false-提取失败
- * @author 杜家宝
- * @date   2025-10-28
+ * 
+ * 实现细节：
+ * - 调用getBirthDateFromIDCard获取日期字符串
+ * - 将字符串转换为整数
+ * - 拆分年、月、日分量
+ * - 返回提取结果状态
  */
 bool extractBirthDate(const char *idCard, int *birthYear, int *birthMonth, int *birthDay)
 {
@@ -229,11 +325,15 @@ bool extractBirthDate(const char *idCard, int *birthYear, int *birthMonth, int *
 }
 
 /**
- * @brief  验证身份证出生日期有效性
- * @param  IDCard: 身份证号码字符串
+ * @brief 验证身份证出生日期有效性
+ * @param IDCard 身份证号码字符串
  * @retval true-日期有效, false-日期无效
- * @author 杜家宝
- * @date   2025-10-28
+ * 
+ * 实现细节：
+ * - 提取出生日期年、月、日
+ * - 验证年份范围（1900-当前年份）
+ * - 验证月份范围（1-12）
+ * - 验证日期范围和各月份天数
  */
 bool validateIDCardBirthDate(const char *IDCard)
 {
@@ -276,12 +376,17 @@ bool validateIDCardBirthDate(const char *IDCard)
 }
 
 /**
-  * @brief  身份证号码综合验证
-  * @param  idCard: 待验证的身份证号码字符串
-  * @retval true-身份证有效, false-身份证无效
-  * @author 杜家宝
-  * @date   2025-10-28
-  */
+ * @brief 身份证号码综合验证
+ * @param idCard 待验证的身份证号码字符串
+ * @retval true-身份证有效, false-身份证无效
+ * 
+ * 实现细节：
+ * - 依次调用各个验证函数
+ * - 长度和字符验证
+ * - 校验码验证
+ * - 出生日期验证
+ * - 全部通过才返回有效
+ */
 bool isValidIdCard(const char *idCard)
 {
     if (!validateIDCardLengthAndChars(idCard))                  // 长度和字符验证
@@ -300,11 +405,15 @@ bool isValidIdCard(const char *idCard)
 }
 
 /**
- * @brief  根据身份证计算年龄
- * @param  idCard: 身份证号码字符串
+ * @brief 根据身份证计算年龄
+ * @param idCard 身份证号码字符串
  * @retval 年龄值(失败返回-1)
- * @author 杜家宝
- * @date   2025-10-28
+ * 
+ * 实现细节：
+ * - 提取出生日期
+ * - 获取当前日期
+ * - 计算年份差值
+ * - 考虑月份和日期的精确调整
  */
 int calculateAgeFromIDCard(const char *idCard)
 {
@@ -333,11 +442,15 @@ int calculateAgeFromIDCard(const char *idCard)
 }
 
 /**
- * @brief  根据身份证判断性别
- * @param  idCard: 身份证号码字符串
+ * @brief 根据身份证判断性别
+ * @param idCard 身份证号码字符串
  * @retval 性别字符串("男"或"女")
- * @author 杜家宝
- * @date   2025-10-28
+ * 
+ * 实现细节：
+ * - 检查输入参数合法性
+ * - 验证身份证号码长度
+ * - 提取第17位数字
+ * - 根据奇偶性判断性别
  */
 const char* getGenderFromIDCard(const char* idCard)
 {
@@ -365,13 +478,18 @@ const char* getGenderFromIDCard(const char* idCard)
    return (genderNum % 2 == 0) ? "女" : "男";
 }
 
+// ========== 手机号验证函数实现 ==========
+
 /**
-  * @brief  手机号码长度和字符验证
-  * @param  phoneNumber: 待验证的手机号码字符串
-  * @retval true-手机号格式正确, false-手机号格式错误
-  * @author 杜家宝
-  * @date   2025-10-28
-  */
+ * @brief 手机号码长度和字符验证
+ * @param phoneNumber 待验证的手机号码字符串
+ * @retval true-手机号格式正确, false-手机号格式错误
+ * 
+ * 实现细节：
+ * - 验证手机号码长度为11位
+ * - 检查所有字符是否为数字
+ * - 符合中国手机号码基本格式要求
+ */
 bool isValidPhoneNumber(const char *phoneNumber)
 {
     if (phoneNumber == NULL)
@@ -395,12 +513,16 @@ bool isValidPhoneNumber(const char *phoneNumber)
 }
 
 /**
-  * @brief  验证手机号段格式
-  * @param  segment: 手机号段
-  * @retval true-格式正确, false-格式错误
-  * @author 杜家宝
-  * @date   2025-10-28
-  */
+ * @brief 验证手机号段格式
+ * @param segment 手机号段
+ * @retval true-格式正确, false-格式错误
+ * 
+ * 实现细节：
+ * - 验证号段长度范围（3-7位）
+ * - 检查所有字符是否为数字
+ * - 验证号段开头为1，第二位为3-9
+ * - 符合中国手机号段分配规则
+ */
 bool validatePhoneSegment(const char *segment)
 {
     if (segment == NULL) {
@@ -426,25 +548,36 @@ bool validatePhoneSegment(const char *segment)
     
     return true;
 }
+
+// ========== 输入处理函数实现 ==========
+
 /**
-  * @brief  清空输入缓冲区
-  * @param  无
-  * @retval 无
-  * @author 杜家宝
-  * @date   2025-10-28
-  */    
+ * @brief 清空输入缓冲区
+ * @retval 无
+ * 
+ * 实现细节：
+ * - 循环读取输入缓冲区直到清空
+ * - 处理换行符和文件结束符
+ * - 确保后续输入不受残留数据影响
+ */
 void clearInputBuffer()
 {
 	int c;
 	while ((c = getchar()) != '\n' && c != EOF);
 }
 
+// ========== 信息提取函数实现 ==========
+
 /**
- * @brief  根据身份证前2位获取省份信息
- * @param  idCard: 身份证号码字符串
+ * @brief 根据身份证前2位获取省份信息
+ * @param idCard 身份证号码字符串
  * @retval 省份字符串
- * @author 系统开发组
- * @date   2025-11-1
+ * 
+ * 实现细节：
+ * - 提取身份证前2位省级代码
+ * - 映射到对应的省份名称
+ * - 支持全国所有省级行政区的识别
+ * - 返回中文省份名称或"未知"
  */
 const char* getProvinceFromIDCard(const char* idCard) {
     if (idCard == NULL || strlen(idCard) < 2) {
@@ -490,6 +623,15 @@ const char* getProvinceFromIDCard(const char* idCard) {
 
     return "未知";
 }
+
+/*
+ * 测试函数（已注释，供开发调试使用）
+ * 
+ * 功能说明：
+ * - 提供身份证验证功能的测试用例
+ * - 验证各个功能模块的正确性
+ * - 开发阶段用于功能调试
+ */
 // int main(void){
 //     // 测试身份证验证函数
 //     const char *testID = "310104199211056720";      
@@ -505,5 +647,4 @@ const char* getProvinceFromIDCard(const char* idCard) {
 //         printf("身份证号码 %s 无效。\n", testID);
 //     }
 //     return 0;
-
 // }

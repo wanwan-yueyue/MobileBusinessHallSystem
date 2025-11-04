@@ -1,11 +1,28 @@
 /*
  * 文件名称：user_interface.c
  * 文件路径：.\MobileBusinessHallSystem\user_interface.c
- * 功能描述：用户界面交互模块 - 处理所有用户相关的界面交互
+ * 功能描述：用户界面交互模块实现文件 - 实现用户相关的界面交互功能
+ *          提供用户管理功能的完整界面流程和交互逻辑
  * 作    者：
  * 创建日期：2025-10-30
- * 版本信息：v1.0
- * 版权声明：? 2025 | 保留所有权利
+ * 版本信息：v2.0（统一界面样式）
+ * 版权声明：© 2025 | 保留所有权利
+ * 
+ * 实现说明：
+ * 1. 实现用户管理功能的完整界面交互流程
+ * 2. 提供安全的用户输入验证和错误处理机制
+ * 3. 集成手机号管理功能，支持完整的手机号生命周期管理
+ * 4. 使用统一的界面样式和交互模式
+ * 
+ * 依赖说明：
+ * - 标准库：conio.h、string.h、stdlib.h
+ * - 自定义模块：user_interface.h、global.h、menu.h、utils.h、data.h
+ * 
+ * 修改记录：
+ * 2025-10-30  新增文件，实现基础用户界面功能（v1.0）
+ * 2025-10-30  扩展功能，支持手机号管理界面（v1.1）
+ * 2025-10-30  统一界面样式，优化用户体验（v1.2）
+ * 2025-11-4   重构代码结构，完善功能实现（v2.0）
  */
 
 #include "user_interface.h"
@@ -17,19 +34,55 @@
 #include <string.h>
 #include <stdlib.h>
 
-// ========== 辅助函数 ==========
+// ========== 输入辅助函数实现 ==========
 
+/**
+ * @brief 等待任意键继续
+ * @retval 无
+ * 
+ * 实现细节：
+ * - 显示黄色的提示信息
+ * - 使用_getch()等待用户按键
+ * - 不区分具体按键，任何按键都会继续
+ */
 void waitForAnyKey() {
     printf(YELLOW "\n    按任意键继续..." RESET);
     _getch();
 }
 
+/**
+ * @brief 安全字符串输入
+ * @param buffer 输入缓冲区
+ * @param size 缓冲区大小
+ * @param prompt 输入提示信息
+ * @retval 无
+ * 
+ * 实现细节：
+ * - 显示输入提示信息（如果提供）
+ * - 使用fgets进行安全的字符串输入
+ * - 自动去除换行符，确保字符串格式正确
+ * - 防止缓冲区溢出和格式错误
+ */
 void safeStringInput(char* buffer, size_t size, const char* prompt) {
     if (prompt) printf("    %s", prompt);
     fgets(buffer, (int)size, stdin);
     buffer[strcspn(buffer, "\n")] = '\0';
 }
 
+/**
+ * @brief 安全整数输入
+ * @param prompt 输入提示信息
+ * @param min 最小值限制
+ * @param max 最大值限制
+ * @retval 输入的整数值
+ * 
+ * 实现细节：
+ * - 显示输入提示信息和范围限制
+ * - 使用scanf验证输入格式正确性
+ * - 检查输入值是否在指定范围内
+ * - 提供重试机制直到输入有效值
+ * - 自动清理输入缓冲区防止干扰
+ */
 int safeIntInput(const char* prompt, int min, int max) {
     int value;
     while (1) {
@@ -43,17 +96,44 @@ int safeIntInput(const char* prompt, int min, int max) {
     }
 }
 
+/**
+ * @brief 安全清空输入缓冲区
+ * @retval 无
+ * 
+ * 实现细节：
+ * - 调用utils模块的clearInputBuffer函数
+ * - 确保输入缓冲区的完全清理
+ * - 防止残留数据影响后续输入
+ */
 void safeClearInputBuffer() {
     clearInputBuffer();
 }
 
+// ========== 用户管理界面函数实现 ==========
 
-// ========== 核心界面功能 ==========
-
+/**
+ * @brief 新增用户界面
+ * @retval 无
+ * 
+ * 功能说明：
+ * 1. 检查系统用户数量限制
+ * 2. 收集用户基本信息（姓名、身份证号等）
+ * 3. 自动从身份证号码中提取性别和年龄
+ * 4. 验证身份证号码的唯一性和格式
+ * 5. 提供立即注册手机号的选项
+ * 
+ * 实现细节：
+ * - 使用安全的输入函数收集用户信息
+ * - 自动从身份证号码中提取性别和年龄信息
+ * - 验证身份证号码的格式和唯一性
+ * - 提供立即注册手机号的交互选项
+ * - 自动保存新增的用户数据
+ */
 void addUserInterface() {
     clearScreen();
     printSectionTitle("新增用户");
 
+    // 检查系统用户数量限制
     if (getActiveUserCount() >= MAX_USERS) {
         printError("系统用户数量已达上限，无法新增！");
         waitForAnyKey();
@@ -66,7 +146,7 @@ void addUserInterface() {
     // 输入基本信息
     safeStringInput(newUser.name, sizeof(newUser.name), "请输入姓名(不超过19字): ");
 
-    // 输入身份证号
+    // 输入身份证号并进行验证
     while (1) {
         safeStringInput(newUser.idCard, sizeof(newUser.idCard), "请输入18位身份证号: ");
 
@@ -124,6 +204,7 @@ void addUserInterface() {
 
     newUser.status = USER_ACTIVE;
 
+    // 添加用户到系统
     int userIndex = addUser(&newUser);
     if (userIndex >= 0) {
         printSuccess("用户添加成功！");
@@ -143,6 +224,22 @@ void addUserInterface() {
     }
 }
 
+/**
+ * @brief 查找用户界面
+ * @retval 无
+ * 
+ * 功能说明：
+ * 1. 提供多种查找方式选择
+ * 2. 根据选择执行相应的查找逻辑
+ * 3. 处理同名用户的选择区分
+ * 4. 显示查找到的用户详细信息
+ * 
+ * 实现细节：
+ * - 提供身份证号、手机号、姓名三种查找方式
+ * - 处理同名用户的区分选择和显示
+ * - 调用相应的查找函数获取用户索引
+ * - 显示用户的完整详细信息
+ */
 void searchUserInterface() {
     clearScreen();
     printSectionTitle("查找用户");
@@ -205,6 +302,7 @@ void searchUserInterface() {
         }
     }
 
+    // 显示查找到的用户信息
     if (userIndex != -1) {
         displayUserDetailsInterface(userIndex);
     } else {
@@ -213,6 +311,23 @@ void searchUserInterface() {
     }
 }
 
+/**
+ * @brief 显示用户详细信息界面
+ * @param userIndex 用户索引
+ * @retval 无
+ * 
+ * 功能说明：
+ * 1. 显示用户的基本信息（姓名、性别、年龄等）
+ * 2. 显示从身份证号码中自动提取的省份信息
+ * 3. 显示用户绑定的手机号列表
+ * 4. 提供清晰的信息展示格式
+ * 
+ * 实现细节：
+ * - 验证用户索引的有效性
+ * - 使用统一的样式函数显示信息
+ * - 自动从身份证号码中提取并显示省份信息
+ * - 获取并显示用户绑定的所有手机号
+ */
 void displayUserDetailsInterface(int userIndex) {
     User* user = getUserByIndex(userIndex);
     if (user == NULL) {
@@ -222,6 +337,7 @@ void displayUserDetailsInterface(int userIndex) {
 
     printSectionTitle("用户信息");
 
+    // 显示基本信息
     printInfo("姓名", user->name);
     printInfo("性别", user->gender);
     printInfoInt("年龄", user->age);
@@ -263,6 +379,23 @@ void displayUserDetailsInterface(int userIndex) {
     waitForAnyKey();
 }
 
+/**
+ * @brief 修改用户信息界面
+ * @retval 无
+ * 
+ * 功能说明：
+ * 1. 根据身份证号查找要修改的用户
+ * 2. 显示当前用户信息供参考
+ * 3. 提供可修改的字段选择
+ * 4. 执行信息修改并保存数据
+ * 
+ * 实现细节：
+ * - 通过身份证号查找用户
+ * - 显示当前用户信息的完整列表
+ * - 提供选择性修改不同字段的功能
+ * - 验证修改数据的合法性
+ * - 自动保存修改后的数据
+ */
 void modifyUserInterface() {
     clearScreen();
     printSectionTitle("修改用户信息");
@@ -305,10 +438,9 @@ void modifyUserInterface() {
             break;
         case 1: // 修改性别
             while (1) {
-                safeStringInput(newUserData.gender, sizeof(newUserData.gender), "请输入新性别（男/女/其他）：");
+                safeStringInput(newUserData.gender, sizeof(newUserData.gender), "请输入新性别（男/女）：");
                 if (strcmp(newUserData.gender, "男") == 0 || 
-                    strcmp(newUserData.gender, "女") == 0 || 
-                    strcmp(newUserData.gender, "其他") == 0) {
+                    strcmp(newUserData.gender, "女") == 0){
                     break;
                 }
                 printError("性别输入错误，请重新输入！");
@@ -325,6 +457,7 @@ void modifyUserInterface() {
             break;
     }
 
+    // 执行修改操作
     if (modifyUser(userIndex, &newUserData)) {
         saveData();
         printSuccess("信息修改成功！");
@@ -334,6 +467,22 @@ void modifyUserInterface() {
     waitForAnyKey();
 }
 
+/**
+ * @brief 删除用户界面
+ * @retval 无
+ * 
+ * 功能说明：
+ * 1. 根据身份证号查找要删除的用户
+ * 2. 检查用户是否存在关联手机号
+ * 3. 执行用户注销操作
+ * 4. 保存修改后的数据
+ * 
+ * 实现细节：
+ * - 通过身份证号查找用户
+ * - 检查用户是否有关联的未注销手机号
+ * - 执行用户状态更新为已注销
+ * - 自动保存数据变更
+ */
 void deleteUserInterface() {
     clearScreen();
     printSectionTitle("注销用户");
@@ -373,10 +522,27 @@ void deleteUserInterface() {
     waitForAnyKey();
 }
 
+/**
+ * @brief 显示所有用户界面
+ * @retval 无
+ * 
+ * 功能说明：
+ * 1. 显示系统中所有活跃用户的完整信息
+ * 2. 提供多种排序方式选择
+ * 3. 显示用户的手机号绑定情况
+ * 4. 提供用户信息的完整概览
+ * 
+ * 实现细节：
+ * - 获取所有活跃用户数据
+ * - 显示每个用户的完整信息
+ * - 提供多种排序方式的选择
+ * - 显示排序后的用户列表
+ */
 void showAllUsersInterface() {
     clearScreen();
     printSectionTitle("所有用户信息");
 
+    // 检查是否有用户数据
     if (getActiveUserCount() == 0) {
         printError("当前无用户信息！");
         waitForAnyKey();
@@ -387,6 +553,7 @@ void showAllUsersInterface() {
     User allUsers[MAX_USERS];
     int count = getAllActiveUsers(allUsers, MAX_USERS);
 
+    // 显示所有用户信息
     for (int i = 0; i < count; i++) {
         User* user = &allUsers[i];
         printf(WHITE "    用户%d:\n" RESET, i + 1);
@@ -440,6 +607,7 @@ void showAllUsersInterface() {
 
     int sortChoice = makeSelection(sortOptions, 5, "选择排序方式");
     if (sortChoice >= 0 && sortChoice < 4) {
+        // 执行排序操作
         switch (sortChoice) {
         case 0: sortUsersByName(allUsers, count); break;
         case 1: sortUsersByAge(allUsers, count, true); break;
@@ -470,6 +638,25 @@ void showAllUsersInterface() {
     waitForAnyKey();
 }
 
+// ========== 手机号管理界面函数实现 ==========
+
+/**
+ * @brief 注销手机号界面
+ * @retval 无
+ * 
+ * 功能说明：
+ * 1. 根据身份证号查找用户
+ * 2. 显示用户当前绑定的所有手机号
+ * 3. 提供手机号选择注销界面
+ * 4. 执行手机号注销操作
+ * 
+ * 实现细节：
+ * - 验证手机号管理器的可用性
+ * - 通过身份证号查找用户
+ * - 获取用户当前绑定的所有手机号
+ * - 提供手机号选择界面
+ * - 执行注销操作并保存数据
+ */
 void unregisterPhoneInterface() {
     clearScreen();
     printSectionTitle("注销手机号");
@@ -532,6 +719,24 @@ void unregisterPhoneInterface() {
     waitForAnyKey();
 }
 
+/**
+ * @brief 为用户注册手机号界面
+ * @param userId 用户ID，为-1时需要先选择用户
+ * @retval 无
+ * 
+ * 功能说明：
+ * 1. 验证手机号管理器的可用性
+ * 2. 如果需要，先选择要注册手机号的用户
+ * 3. 检查用户手机号数量限制
+ * 4. 提供手机号获取方式选择
+ * 5. 执行手机号注册操作
+ * 
+ * 实现细节：
+ * - 支持手动输入和号段选择两种手机号获取方式
+ * - 提供完整的号段分类和选择界面
+ * - 验证手机号格式和唯一性
+ * - 执行手机号绑定操作并保存数据
+ */
 void registerPhoneForUserInterface(int userId) {
     clearScreen();
     printSectionTitle("注册手机号");
