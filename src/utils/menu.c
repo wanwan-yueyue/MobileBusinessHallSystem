@@ -296,7 +296,7 @@ void handleMenuChoice(int choice) {
         "【修改用户信息】",
         "【删除用户】",
         "【显示所有用户】",
-        "【保存数据】",
+        "【回收站】",
         "【退出系统】"
     };
     
@@ -327,8 +327,7 @@ void handleMenuChoice(int choice) {
         showAllUsersInterface(); 
         break;
     case 7:
-        saveData();
-        printSuccess("数据已保存成功！");
+		recycleBinInterface();
         break;
     case 8:
         saveData();
@@ -368,7 +367,7 @@ void showMainMenu() {
         "修改用户信息",
         "删除用户",
         "显示所有用户",
-        "保存数据",
+        "回收站",
         "退出系统"
     };
     
@@ -412,6 +411,187 @@ void showMainMenu() {
         }
     }
 }
+
+
+/**
+ * @brief 回收站管理界面
+ * @retval 无
+ */
+void recycleBinInterface() {
+    clearScreen();
+    printSectionTitle("回收站管理");
+
+    // 统计已删除用户数量
+    int deletedCount = 0;
+    User deletedUsers[MAX_USERS];
+
+    for (int i = 0; i < MAX_USERS; i++) {
+        if (users[i].status == USER_DELETED) {
+            deletedUsers[deletedCount++] = users[i];
+        }
+    }
+
+    if (deletedCount == 0) {
+        printWarning("回收站为空，没有已删除的用户！");
+        waitForAnyKey();
+        return;
+    }
+
+    printf("    回收站中共有 %d 个已删除用户\n\n", deletedCount);
+
+    // 显示已删除用户列表
+    for (int i = 0; i < deletedCount; i++) {
+        User* user = &deletedUsers[i];
+        printf(WHITE "    %d. " RESET, i + 1);
+        printf("%s (身份证: %s, 年龄: %d, 性别: %s)\n",
+            user->name, user->idCard, user->age, user->gender);
+    }
+
+    printf("\n");
+    printSeparator();
+
+    // 操作选项
+    const char* recycleOptions[] = {
+        "恢复用户",
+        "永久删除用户",
+        "清空回收站",
+        "返回主菜单"
+    };
+
+    int choice = makeSelection(recycleOptions, 4, "选择操作");
+
+    switch (choice) {
+    case 0: { // 恢复用户
+        if (deletedCount == 0) {
+            printError("没有可恢复的用户！");
+            break;
+        }
+
+        // 选择要恢复的用户
+        char* userOptions[MAX_USERS + 1];
+        for (int i = 0; i < deletedCount; i++) {
+            User* user = &deletedUsers[i];
+            userOptions[i] = (char*)malloc(100);
+            snprintf(userOptions[i], 100, "%s (身份证: %s)", user->name, user->idCard);
+        }
+        userOptions[deletedCount] = "取消";
+
+        int userChoice = makeSelection((const char**)userOptions, deletedCount + 1, "选择要恢复的用户");
+
+        // 释放内存
+        for (int i = 0; i < deletedCount; i++) {
+            free(userOptions[i]);
+        }
+
+        if (userChoice >= 0 && userChoice < deletedCount) {
+            // 使用新的函数查找用户索引（包括已删除用户）
+            int originalIndex = findUserIndexByIdIncludeDeleted(deletedUsers[userChoice].idCard);
+            if (originalIndex != -1) {
+                // 使用新的恢复函数
+                if (restoreUser(originalIndex)) {
+                    saveData(); // 立即保存数据
+                    printSuccess("用户恢复成功！");
+                }
+                else {
+                    printError("用户恢复失败！");
+                }
+            }
+            else {
+                printError("找不到对应的用户！");
+            }
+        }
+        break;
+    }
+
+    case 1: { // 永久删除用户
+        if (deletedCount == 0) {
+            printError("没有可永久删除的用户！");
+            break;
+        }
+
+        // 选择要永久删除的用户
+        char* userOptions[MAX_USERS + 1];
+        for (int i = 0; i < deletedCount; i++) {
+            User* user = &deletedUsers[i];
+            userOptions[i] = (char*)malloc(100);
+            snprintf(userOptions[i], 100, "%s (身份证: %s)", user->name, user->idCard);
+        }
+        userOptions[deletedCount] = "取消";
+
+        int userChoice = makeSelection((const char**)userOptions, deletedCount + 1, "选择要永久删除的用户");
+
+        // 释放内存
+        for (int i = 0; i < deletedCount; i++) {
+            free(userOptions[i]);
+        }
+
+        if (userChoice >= 0 && userChoice < deletedCount) {
+            // 确认删除
+            const char* confirmOptions[] = { "确认永久删除", "取消" };
+            int confirm = makeSelection(confirmOptions, 2, "确认要永久删除该用户吗？此操作不可撤销！");
+
+            if (confirm == 0) {
+                // 使用新的函数查找用户索引（包括已删除用户）
+                int originalIndex = findUserIndexByIdIncludeDeleted(deletedUsers[userChoice].idCard);
+                if (originalIndex != -1) {
+                    users[originalIndex].status = USER_INACTIVE;
+                    // 清空用户数据
+                    memset(users[originalIndex].name, 0, NAME_LEN);
+                    memset(users[originalIndex].gender, 0, GENDER_LEN);
+                    users[originalIndex].age = 0;
+                    memset(users[originalIndex].idCard, 0, ID_LEN);
+                    memset(users[originalIndex].job, 0, JOB_LEN);
+                    memset(users[originalIndex].address, 0, ADDR_LEN);
+
+                    saveData(); // 立即保存数据
+                    printSuccess("用户已永久删除！");
+                }
+                else {
+                    printError("找不到对应的用户！");
+                }
+            }
+        }
+        break;
+    }
+
+    case 2: { // 清空回收站
+        if (deletedCount == 0) {
+            printError("回收站已为空！");
+            break;
+        }
+
+        // 确认清空
+        const char* confirmOptions[] = { "确认清空回收站", "取消" };
+        int confirm = makeSelection(confirmOptions, 2, "确认要清空回收站吗？此操作不可撤销！");
+
+        if (confirm == 0) {
+            int clearedCount = 0;
+            for (int i = 0; i < MAX_USERS; i++) {
+                if (users[i].status == USER_DELETED) {
+                    users[i].status = USER_INACTIVE;
+                    // 清空用户数据
+                    memset(users[i].name, 0, NAME_LEN);
+                    memset(users[i].gender, 0, GENDER_LEN);
+                    users[i].age = 0;
+                    memset(users[i].idCard, 0, ID_LEN);
+                    memset(users[i].job, 0, JOB_LEN);
+                    memset(users[i].address, 0, ADDR_LEN);
+                    clearedCount++;
+                }
+            }
+            saveData(); // 立即保存数据
+            printf(GREEN "    ✓ 回收站已清空，共永久删除 %d 个用户\n" RESET, clearedCount);
+        }
+        break;
+    }
+
+    case 3: // 返回主菜单
+        return;
+    }
+
+    waitForAnyKey();
+};
+
 
 /**
  * @brief 创建选择界面

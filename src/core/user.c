@@ -83,12 +83,12 @@ int deleteUser(int userIndex) {
     }
 
     // 检查用户当前状态
-    if (users[userIndex].status == USER_INACTIVE) {
+    if (users[userIndex].status != USER_ACTIVE) {
         return 0;
     }
 
     // 设置用户状态为已注销
-    users[userIndex].status = USER_INACTIVE;
+    users[userIndex].status = USER_DELETED;
     userCount--;
     return 1;
 }
@@ -351,4 +351,56 @@ void sortUsersByIdCard(User* usersArray, int count) {
             }
         }
     }
+}
+/**
+ * @brief 通过身份证号查找用户索引（包括已删除用户）
+ * @param idCard 身份证号字符串
+ * @retval int 找到返回用户索引，未找到返回-1
+ *
+ * 实现细节：
+ * - 验证输入参数的有效性
+ * - 遍历用户数组查找匹配的身份证号
+ * - 搜索所有状态的用户（包括已删除）
+ * - 返回第一个匹配的用户索引
+ */
+int findUserIndexByIdIncludeDeleted(const char* idCard) {
+    if (idCard == NULL) {
+        return -1;
+    }
+
+    // 遍历用户数组查找匹配的身份证号（包括已删除用户）
+    for (int i = 0; i < MAX_USERS; i++) {
+        if ((users[i].status == USER_ACTIVE || users[i].status == USER_DELETED) &&
+            strcmp(users[i].idCard, idCard) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/**
+ * @brief 恢复已删除用户
+ * @param userIndex 用户索引
+ * @retval int 成功返回1，失败返回0
+ *
+ * 实现细节：
+ * - 验证用户索引的有效性
+ * - 检查用户当前状态是否为已删除
+ * - 将用户状态设置为活跃
+ * - 增加活跃用户计数
+ */
+int restoreUser(int userIndex) {
+    if (userIndex < 0 || userIndex >= MAX_USERS) {
+        return 0;
+    }
+
+    // 检查用户当前状态
+    if (users[userIndex].status != USER_DELETED) {
+        return 0;
+    }
+
+    // 设置用户状态为活跃
+    users[userIndex].status = USER_ACTIVE;
+    userCount++;
+    return 1;
 }

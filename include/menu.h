@@ -258,7 +258,7 @@ void showMainMenu();
  * @brief 处理菜单选择操作
  * @param choice 用户选择的菜单项索引
  * @retval 无
- * 
+ *
  * 功能说明：
  * - 根据选择调用相应的功能模块
  * - 显示操作标题和执行结果
@@ -266,6 +266,18 @@ void showMainMenu();
  * - 在操作完成后提供返回提示
  */
 void handleMenuChoice(int choice);
+
+/**
+ * @brief 回收站管理界面
+ * @retval 无
+ *
+ * 功能说明：
+ * - 显示已删除用户的完整信息
+ * - 提供用户恢复和永久删除功能
+ * - 管理回收站中的用户数据
+ * - 支持批量操作和搜索功能
+ */
+void recycleBinInterface();
 
 /**
  * @brief 创建选择界面
@@ -281,5 +293,19 @@ void handleMenuChoice(int choice);
  * - 返回用户最终选择的选项索引
  */
 int makeSelection(const char *options[], int count, const char *title);
+
+// menu.h - 在文件末尾添加
+
+/**
+ * @brief 回收站管理界面
+ * @retval 无
+ *
+ * 功能说明：
+ * - 显示已删除用户的完整信息
+ * - 提供用户恢复和永久删除功能
+ * - 管理回收站中的用户数据
+ * - 支持批量操作和搜索功能
+ */
+void recycleBinInterface();
 
 #endif // MENU_H

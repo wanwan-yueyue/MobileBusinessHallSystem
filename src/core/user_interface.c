@@ -131,7 +131,9 @@ void safeClearInputBuffer() {
  */
 void addUserInterface() {
     clearScreen();
+	safeClearInputBuffer();
     printSectionTitle("新增用户");
+	safeClearInputBuffer();
 
     // 检查系统用户数量限制
     if (getActiveUserCount() >= MAX_USERS) {
@@ -147,6 +149,7 @@ void addUserInterface() {
     safeStringInput(newUser.name, sizeof(newUser.name), "请输入姓名(不超过19字): ");
 
     // 输入身份证号并进行验证
+    clearInputBuffer();
     while (1) {
         safeStringInput(newUser.idCard, sizeof(newUser.idCard), "请输入18位身份证号: ");
 
@@ -242,6 +245,7 @@ void addUserInterface() {
  */
 void searchUserInterface() {
     clearScreen();
+	safeClearInputBuffer();
     printSectionTitle("查找用户");
     
     const char* searchOptions[] = {
@@ -398,6 +402,7 @@ void displayUserDetailsInterface(int userIndex) {
  */
 void modifyUserInterface() {
     clearScreen();
+	safeClearInputBuffer();
     printSectionTitle("修改用户信息");
     
     char idCard[ID_LEN];
@@ -433,10 +438,13 @@ void modifyUserInterface() {
     User newUserData = *user; // 复制原数据
 
     switch (choice) {
-        case 0: // 修改姓名
+        case 0: {// 修改姓名
+			safeClearInputBuffer();
             safeStringInput(newUserData.name, sizeof(newUserData.name), "请输入新姓名：");
             break;
-        case 1: // 修改性别
+		}
+        case 1: {// 修改性别
+			safeClearInputBuffer();
             while (1) {
                 safeStringInput(newUserData.gender, sizeof(newUserData.gender), "请输入新性别（男/女）：");
                 if (strcmp(newUserData.gender, "男") == 0 || 
@@ -446,15 +454,22 @@ void modifyUserInterface() {
                 printError("性别输入错误，请重新输入！");
             }
             break;
-        case 2: // 修改年龄
+		}
+        case 2: {// 修改年龄
+			safeClearInputBuffer();
             newUserData.age = safeIntInput("请输入新年龄（1-120）：", 1, 120);
             break;
-        case 3: // 修改职业
+        }
+        case 3: {// 修改职业
+            safeClearInputBuffer();
             safeStringInput(newUserData.job, sizeof(newUserData.job), "请输入新职业：");
             break;
-        case 4: // 修改地址
+        }
+        case 4: {// 修改地址
+            safeClearInputBuffer();
             safeStringInput(newUserData.address, sizeof(newUserData.address), "请输入新地址：");
             break;
+        }
     }
 
     // 执行修改操作
@@ -485,6 +500,7 @@ void modifyUserInterface() {
  */
 void deleteUserInterface() {
     clearScreen();
+	safeClearInputBuffer();
     printSectionTitle("注销用户");
     
     char idCard[ID_LEN];
@@ -659,6 +675,7 @@ void showAllUsersInterface() {
  */
 void unregisterPhoneInterface() {
     clearScreen();
+	safeClearInputBuffer();
     printSectionTitle("注销手机号");
     
     if (getPhoneManager() == NULL) {
@@ -739,6 +756,7 @@ void unregisterPhoneInterface() {
  */
 void registerPhoneForUserInterface(int userId) {
     clearScreen();
+	safeClearInputBuffer();
     printSectionTitle("注册手机号");
     
     if (getPhoneManager() == NULL) {

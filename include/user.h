@@ -55,15 +55,16 @@
 
 /**
  * @brief 用户状态枚举
- * 
+ *
  * 功能说明：
- * - 定义用户在系统中的两种状态
+ * - 定义用户在系统中的三种状态
  * - 支持用户账户的生命周期管理
  * - 确保用户状态转换的逻辑正确性
  */
 typedef enum {
     USER_ACTIVE = 1,                            // 活跃用户 - 正常使用状态
-    USER_INACTIVE = 0                           // 已注销用户 - 不可用状态
+    USER_INACTIVE = 0,                          // 已注销用户 - 不可用状态
+    USER_DELETED = 2                            // 已删除用户 - 在回收站中
 } UserStatus;
 
 /**
@@ -250,4 +251,29 @@ void sortUsersByAge(User* usersArray, int count, bool ascending);
  */
 void sortUsersByIdCard(User* usersArray, int count);
 
+/**
+ * @brief 通过身份证号查找用户索引（包括已删除用户）
+ * @param idCard 身份证号字符串
+ * @retval int 找到返回用户索引，未找到返回-1
+ *
+ * 功能说明：
+ * - 在用户数组中查找指定身份证号的用户
+ * - 搜索所有状态的用户（包括已删除）
+ * - 返回用户在数组中的位置索引
+ * - 用于回收站管理等场景
+ */
+int findUserIndexByIdIncludeDeleted(const char* idCard);
+
+/**
+ * @brief 恢复已删除用户
+ * @param userIndex 用户索引
+ * @retval int 成功返回1，失败返回0
+ *
+ * 功能说明：
+ * - 将指定用户的状态从已删除恢复为活跃
+ * - 验证用户索引的有效性
+ * - 增加活跃用户计数
+ * - 用于回收站中的用户恢复操作
+ */
+int restoreUser(int userIndex);
 #endif // _USER

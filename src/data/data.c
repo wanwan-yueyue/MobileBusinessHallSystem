@@ -105,19 +105,13 @@ void initSystem() {
 
 /**
  * @brief 从文件读取用户数据到内存
- * @retval int 成功加载的用户数量
- * 
+ * @retval int 成功加载的用户数据数量
+ *
  * 功能说明：
  * 1. 打开用户数据文件进行二进制读取
  * 2. 初始化全局变量
- * 3. 读取活跃用户数据到用户数组
+ * 3. 读取所有用户数据（包括活跃和已删除）
  * 4. 更新用户计数并返回结果
- * 
- * 实现细节：
- * - 使用安全文件打开函数防止文件操作错误
- * - 只读取状态为活跃的用户数据
- * - 维护准确的用户计数
- * - 提供详细的加载状态反馈
  */
 int readData() {
     FILE* fp;
@@ -129,27 +123,38 @@ int readData() {
 
     // 初始化全局变量
     initGlobalVariables();
-    
+
     int i = 0;
     User tempUser;
-    // 读取用户数据直到文件末尾
+    int activeCount = 0;
+    int deletedCount = 0;
+
+    // 读取所有用户数据（包括活跃和已删除）
     while (i < MAX_USERS && fread(&tempUser, sizeof(User), 1, fp) == 1) {
-        if(tempUser.status == USER_ACTIVE) {
-            users[i] = tempUser;
-            userCount++;
-            i++;
+        users[i] = tempUser;
+
+        // 统计不同类型用户的数量
+        if (tempUser.status == USER_ACTIVE) {
+            userCount++;  // 只统计活跃用户
+            activeCount++;
         }
-    }   
+        else if (tempUser.status == USER_DELETED) {
+            deletedCount++;
+        }
+        i++;
+    }
 
     fclose(fp);
-    
-    if (userCount > 0) {
-        printf(GREEN "    ✓ 成功加载 %d 个用户数据\n" RESET, userCount);
-    } else {
+
+    if (activeCount > 0 || deletedCount > 0) {
+        printf(GREEN "    ✓ 成功加载 %d 个用户数据（活跃：%d，回收站：%d）\n" RESET,
+            activeCount + deletedCount, activeCount, deletedCount);
+    }
+    else {
         printWarning("无用户数据或加载失败");
     }
-    
-    return userCount;
+
+    return activeCount + deletedCount;
 }
 
 /**
@@ -334,42 +339,33 @@ void loadData() {
 /**
  * @brief 保存所有系统数据
  * @retval 无
- * 
- * 功能说明：
- * 1. 保存用户数据到文件
- * 2. 保存手机号资源到文件
- * 3. 统计有效数据数量
- * 4. 提供保存结果反馈
- * 
- * 实现细节：
- * - 分别保存用户数据和手机号资源
- * - 只保存状态为活跃的用户数据
- * - 统计并报告保存的数据数量
- * - 处理保存过程中的异常情况
  */
 void saveData() {
     printSectionTitle("保存系统数据");
-    
-    // 保存用户数据
+
+    // 保存用户数据（包括回收站中的用户）
     FILE* fp;
     errno_t err = fopen_s(&fp, "userData.dat", "wb");
     if (err != 0 || fp == NULL) {
         printError("保存失败，无法打开用户数据文件！");
         return;
     }
-    
-    // 统计有效用户数量
-    int activeCount = 0;
+
+    // 统计有效用户数量（活跃用户 + 回收站用户）
+    int totalCount = 0;
+    int activeCount = 0, deletedCount = 0;
     for (int i = 0; i < MAX_USERS; i++) {
-        if (users[i].status == USER_ACTIVE) {
-            activeCount++;
+        if (users[i].status == USER_ACTIVE || users[i].status == USER_DELETED) {
+            totalCount++;
+            if (users[i].status == USER_ACTIVE) activeCount++;
+            else if (users[i].status == USER_DELETED) deletedCount++;
         }
     }
-    
+
     // 写入有效用户数据
     size_t written = 0;
     for (int i = 0; i < MAX_USERS; i++) {
-        if (users[i].status == USER_ACTIVE) {
+        if (users[i].status == USER_ACTIVE || users[i].status == USER_DELETED) {
             if (fwrite(&users[i], sizeof(User), 1, fp) != 1) {
                 printError("用户数据写入失败！");
                 fclose(fp);
@@ -378,19 +374,23 @@ void saveData() {
             written++;
         }
     }
-    
+
     fclose(fp);
-    
+
     // 保存手机号资源
     PhoneManager* phoneMgr = getPhoneManager();
     if (phoneMgr != NULL) {
         if (savePhoneResource(phoneMgr, "phoneData.dat")) {
-            printf(GREEN "    ✓ 数据保存成功！用户数据：%d条，手机号资源：%d个\n" RESET, 
-                   activeCount, phoneMgr->count);
-        } else {
-            printf(YELLOW "    ! 用户数据保存成功（%d条），但手机号资源保存失败！\n" RESET, activeCount);
+            printf(GREEN "    ✓ 数据保存成功！活跃用户：%d条，回收站：%d条，手机号资源：%d个\n" RESET,
+                activeCount, deletedCount, phoneMgr->count);
         }
-    } else {
-        printf(YELLOW "    ! 用户数据保存成功（%d条），但手机号管理器未初始化！\n" RESET, activeCount);
+        else {
+            printf(YELLOW "    ! 用户数据保存成功（活跃：%d条，回收站：%d条），但手机号资源保存失败！\n" RESET,
+                activeCount, deletedCount);
+        }
+    }
+    else {
+        printf(YELLOW "    ! 用户数据保存成功（活跃：%d条，回收站：%d条），但手机号管理器未初始化！\n" RESET,
+            activeCount, deletedCount);
     }
 }
